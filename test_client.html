@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Inventory Trading Test Client</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            .trading {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 20px;
+                padding: 20px;
+                height: 100vh;
+                background-color: #f0f0f0;
+            }
+
+            .user-info {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                align-self: flex-start;
+                background-color: #fff;
+                border-radius: 10px;
+                padding: 10px;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            }
+        </style>
+    </head>
+    <body>
+        <main class="trading">
+            <aside class="user-info">
+                <h1>User Information</h1>
+                <p><strong>Username:</strong> <span id="username"></span></p>
+            </aside>
+        </main>
+    </body>
+    <script type="module">
+        import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
+
+        // Ask for username on page load
+        const username = prompt("Enter your username:");
+        document.getElementById("username").textContent = username;
+
+        // Connect to the server
+        const socket = io("http://localhost:3000");
+    </script>
+</html>
