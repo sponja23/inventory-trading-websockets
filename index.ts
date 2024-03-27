@@ -7,10 +7,12 @@ const io = new Server(3000, {
     },
 });
 
+const nameToSocket = new Map<string, string>();
+
 io.on("connection", (socket) => {
     console.log("a user connected");
 
-    socket.on("disconnect", () => {
-        console.log("user disconnected");
+    socket.on("setName", (name: string) => {
+        nameToSocket.set(name, socket.id);
     });
 });

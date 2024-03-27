@@ -51,5 +51,8 @@
 
         // Connect to the server
         const socket = io("http://localhost:3000");
+
+        // Send the username to the server
+        socket.emit("setName", username);
     </script>
 </html>
