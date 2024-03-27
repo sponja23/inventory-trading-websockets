@@ -1,4 +1,5 @@
 import { Server } from "socket.io";
+import { TradeSystem } from "./tradeSystem";
 
 const io = new Server(3000, {
     cors: {
@@ -7,12 +8,4 @@ const io = new Server(3000, {
     },
 });
 
-const nameToSocket = new Map<string, string>();
-
-io.on("connection", (socket) => {
-    console.log("a user connected");
-
-    socket.on("setName", (name: string) => {
-        nameToSocket.set(name, socket.id);
-    });
-});
+const system = new TradeSystem(io);
