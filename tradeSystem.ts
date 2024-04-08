@@ -19,9 +19,13 @@ enum UserState {
 }
 
 type SocketData = {
+    // The user ID of the connected user
     userId?: string;
+    // The current state of the user
     state: UserState;
+    // The user ID to which an invite was sent (if any)
     inviteSentTo?: string;
+    // The trade information for the current trade (if any)
     tradeInfo?: TradeInformation;
 };
 
@@ -65,9 +69,11 @@ type ServerActions = {
     error: (message: string) => void;
     // Notify the user that they have received an invite
     inviteReceived: (userId: string) => void;
-    // Notify the user that the invite was accepted
+    // Notify the user that an invite they received was cancelled
+    inviteCancelled: (userId: string) => void;
+    // Notify the user that the invite they sent was accepted
     inviteAccepted: (userId: string) => void;
-    // Notify the user that the invite was rejected
+    // Notify the user that the invite they sent was rejected
     inviteRejected: (userId: string) => void;
     // Notify the user that the trade inventory was updated
     inventoryUpdated: (inventory: Inventory) => void;
@@ -99,8 +105,8 @@ const validActions = new Map<UserState, (keyof UserActions)[]>([
 export class TradeSystem {
     // userId -> socket
     private userIdToSocket = new Map<string, TradeSocket>();
-    // userId -> [invites received]
-    private pendingInvites = new Map<string, string[]>();
+    // userId -> [userIDs that have sent an invite]
+    private pendingInvites = new Map<string, Set<string>>();
 
     constructor(
         private io: Server<
@@ -139,9 +145,11 @@ export class TradeSystem {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 socket.on(action, (...args: any): void => {
                     const state = socket.data.state;
-                    const handler = handlers.get(action);
-                    if (handler) {
-                        handler(socket, ...args);
+                    if (validActions.get(state)?.includes(action)) {
+                        socket.data.state = handlers.get(action)!(
+                            socket,
+                            ...args,
+                        );
                     } else {
                         socket.emit(
                             "error",
@@ -154,6 +162,10 @@ export class TradeSystem {
             socket.on("disconnect", () => {
                 if (socket.data.userId) {
                     this.userIdToSocket.delete(socket.data.userId);
+                    // TODO: Reject pending invites?
+
+                    // TODO: Cancel trade if in progress
+
                     console.log(
                         `User "${socket.data.userId}" has disconnected`,
                     );
@@ -169,8 +181,16 @@ export class TradeSystem {
         }
 
         this.userIdToSocket.set(userId, socket);
+
         socket.data.userId = userId;
         socket.data.state = UserState.inLobby;
+        socket.data.inviteSentTo = undefined;
+        socket.data.tradeInfo = undefined;
+
+        for (const invitingUserId of this.pendingInvites.get(userId) || []) {
+            socket.emit("inviteReceived", invitingUserId);
+        }
+
         socket.emit("success", userId);
 
         console.log(`User "${userId}" has connected`);
@@ -179,11 +199,43 @@ export class TradeSystem {
     }
 
     private handleSendInvite(socket: TradeSocket, userId: string): UserState {
-        // TODO
+        if (!this.pendingInvites.has(userId)) {
+            this.pendingInvites.set(userId, new Set());
+        }
+
+        this.pendingInvites.get(userId)!.add(socket.data.userId!);
+
+        if (this.userIdToSocket.has(userId)) {
+            this.userIdToSocket.get(userId)!.emit("inviteReceived", userId);
+        }
+
+        socket.data.inviteSentTo = userId;
+
+        socket.emit("success", `Invite sent to "${userId}"`);
+
+        return UserState.sentInvite;
     }
 
     private handleCancelInvite(socket: TradeSocket): UserState {
-        // TODO
+        const inviteSentTo = socket.data.inviteSentTo;
+        if (!inviteSentTo) {
+            socket.emit("error", "No invite to cancel");
+            return socket.data.state;
+        }
+
+        this.pendingInvites.get(inviteSentTo)!.delete(socket.data.userId!);
+
+        if (this.userIdToSocket.has(inviteSentTo)) {
+            this.userIdToSocket
+                .get(inviteSentTo)!
+                .emit("inviteCancelled", socket.data.userId!);
+        }
+
+        socket.data.inviteSentTo = undefined;
+
+        socket.emit("success", `Invite to "${inviteSentTo}" cancelled`);
+
+        return UserState.inLobby;
     }
 
     private handleAcceptInvite(socket: TradeSocket): UserState {
