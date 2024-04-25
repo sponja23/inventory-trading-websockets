@@ -240,10 +240,11 @@ export class TradeSystem {
 
     private handleAcceptInvite(socket: TradeSocket): UserState {
         // TODO
+        return UserState.inTrade;
     }
 
     private handleRejectInvite(socket: TradeSocket): UserState {
-        // TODO
+        return UserState.inLobby;
     }
 
     private handleUpdateInventory(
@@ -251,6 +252,7 @@ export class TradeSystem {
         inventory: Inventory,
     ): UserState {
         // TODO
+        return socket.data.state;
     }
 
     private handleLockIn(
@@ -259,13 +261,16 @@ export class TradeSystem {
         inventory2: Inventory,
     ): UserState {
         // TODO
+        return UserState.lockedIn;
     }
 
     private handleUnlock(socket: TradeSocket): UserState {
         // TODO
+        return UserState.inTrade;
     }
 
     private handleCancelTrade(socket: TradeSocket): UserState {
         // TODO
+        return UserState.inLobby;
     }
 }
