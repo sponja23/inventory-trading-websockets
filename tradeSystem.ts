@@ -10,7 +10,7 @@ export type TradeInformation = {
     inventory2: Inventory;
 };
 
-enum UserState {
+export enum UserState {
     noUserId,
     inLobby,
     sentInvite,
@@ -103,19 +103,21 @@ const validActions = new Map<UserState, (keyof UserActions)[]>([
 ]);
 
 export class TradeSystem {
+    io: Server<UserActions, ServerActions, Record<string, never>, SocketData>;
     // userId -> socket
-    private userIdToSocket = new Map<string, TradeSocket>();
+    userIdToSocket = new Map<string, TradeSocket>();
     // userId -> [userIDs that have sent an invite]
-    private pendingInvites = new Map<string, Set<string>>();
+    pendingInvites = new Map<string, Set<string>>();
 
     constructor(
-        private io: Server<
+        private _io: Server<
             UserActions,
             ServerActions,
             Record<string, never>,
             SocketData
         >,
     ) {
+        this.io = _io;
         this.setupSocketEvents();
     }
 
@@ -123,17 +125,17 @@ export class TradeSystem {
         const handlers = new Map<
             keyof UserActions,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (socket: TradeSocket, ...args: any) => UserState
+            (socket: TradeSocket, ...args: any) => any
         >([
-            ["authenticate", this.handleAuthenticate],
-            ["sendInvite", this.handleSendInvite],
-            ["cancelInvite", this.handleCancelInvite],
-            ["acceptInvite", this.handleAcceptInvite],
-            ["rejectInvite", this.handleRejectInvite],
-            ["updateInventory", this.handleUpdateInventory],
-            ["lockIn", this.handleLockIn],
-            ["unlock", this.handleUnlock],
-            ["cancelTrade", this.handleCancelTrade],
+            ["authenticate", this.handleAuthenticate.bind(this)],
+            ["sendInvite", this.handleSendInvite.bind(this)],
+            ["cancelInvite", this.handleCancelInvite.bind(this)],
+            ["acceptInvite", this.handleAcceptInvite.bind(this)],
+            ["rejectInvite", this.handleRejectInvite.bind(this)],
+            ["updateInventory", this.handleUpdateInventory.bind(this)],
+            ["lockIn", this.handleLockIn.bind(this)],
+            ["unlock", this.handleUnlock.bind(this)],
+            ["cancelTrade", this.handleCancelTrade.bind(this)],
         ]);
 
         this.io.on("connection", (socket) => {
@@ -145,11 +147,11 @@ export class TradeSystem {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 socket.on(action, (...args: any): void => {
                     const state = socket.data.state;
+
+                    const callback = args.pop();
+
                     if (validActions.get(state)?.includes(action)) {
-                        socket.data.state = handlers.get(action)!(
-                            socket,
-                            ...args,
-                        );
+                        callback(handlers.get(action)!(socket, ...args));
                     } else {
                         socket.emit(
                             "error",
@@ -174,7 +176,11 @@ export class TradeSystem {
         });
     }
 
-    private handleAuthenticate(socket: TradeSocket, userId: string): UserState {
+    close() {
+        this.io.close();
+    }
+
+    private handleAuthenticate(socket: TradeSocket, userId: string) {
         if (this.userIdToSocket.has(userId)) {
             socket.emit("error", `User ID "${userId}" is already connected`);
             return UserState.noUserId;
@@ -191,14 +197,12 @@ export class TradeSystem {
             socket.emit("inviteReceived", invitingUserId);
         }
 
-        socket.emit("success", userId);
-
         console.log(`User "${userId}" has connected`);
 
-        return UserState.inLobby;
+        this.setUserState(userId, UserState.inLobby);
     }
 
-    private handleSendInvite(socket: TradeSocket, userId: string): UserState {
+    private handleSendInvite(socket: TradeSocket, userId: string) {
         if (!this.pendingInvites.has(userId)) {
             this.pendingInvites.set(userId, new Set());
         }
@@ -211,12 +215,10 @@ export class TradeSystem {
 
         socket.data.inviteSentTo = userId;
 
-        socket.emit("success", `Invite sent to "${userId}"`);
-
-        return UserState.sentInvite;
+        this.setUserState(socket.data.userId!, UserState.sentInvite);
     }
 
-    private handleCancelInvite(socket: TradeSocket): UserState {
+    private handleCancelInvite(socket: TradeSocket) {
         const inviteSentTo = socket.data.inviteSentTo;
         if (!inviteSentTo) {
             socket.emit("error", "No invite to cancel");
@@ -235,7 +237,7 @@ export class TradeSystem {
 
         socket.emit("success", `Invite to "${inviteSentTo}" cancelled`);
 
-        return UserState.inLobby;
+        this.setUserState(socket.data.userId!, UserState.inLobby);
     }
 
     private handleAcceptInvite(socket: TradeSocket): UserState {
@@ -272,5 +274,19 @@ export class TradeSystem {
     private handleCancelTrade(socket: TradeSocket): UserState {
         // TODO
         return UserState.inLobby;
+    }
+
+    // User State
+    getUserState(userId: string): UserState {
+        return (
+            this.userIdToSocket.get(userId)?.data.state || UserState.noUserId
+        );
+    }
+
+    setUserState(userId: string, state: UserState) {
+        const socket = this.userIdToSocket.get(userId);
+        if (socket) {
+            socket.data.state = state;
+        }
     }
 }
