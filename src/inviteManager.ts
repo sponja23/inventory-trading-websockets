@@ -67,22 +67,14 @@ export class InviteManager {
             return;
         }
 
-        if (!this.pendingInvites.has(to)) {
-            this.pendingInvites.set(to, new Set());
-        }
-
-        this.pendingInvites.get(to)!.add(from);
+        this.addPendingInvite(from, to);
 
         fromData.inviteSentTo = to;
 
         if (this.connectedUsers.has(to)) {
             this.notifyInviteSent(from, to);
         } else {
-            if (!this.pendingNotifications.has(to)) {
-                this.pendingNotifications.set(to, new Set());
-            }
-
-            this.pendingNotifications.get(to)!.add(from);
+            this.addPendingNotification(from, to);
         }
     }
 
@@ -95,11 +87,8 @@ export class InviteManager {
             return;
         }
 
-        if (
-            this.pendingInvites.has(from) &&
-            this.pendingInvites.get(from)!.has(to)
-        ) {
-            this.pendingInvites.get(from)!.delete(to);
+        if (this.inviteExists(from, to)) {
+            this.removePendingInvite(from, to);
 
             fromData.inviteSentTo = undefined;
 
@@ -112,11 +101,8 @@ export class InviteManager {
     acceptInvite(fromData: UserData, to: UserId) {
         const from = fromData.userId!;
 
-        if (
-            this.pendingInvites.has(to) &&
-            this.pendingInvites.get(to)!.has(from)
-        ) {
-            this.pendingInvites.get(to)!.delete(from);
+        if (this.inviteExists(from, to)) {
+            this.removePendingInvite(from, to);
 
             fromData.inviteSentTo = undefined;
 
@@ -129,11 +115,8 @@ export class InviteManager {
     rejectInvite(fromData: UserData, to: UserId) {
         const from = fromData.userId!;
 
-        if (
-            this.pendingInvites.has(to) &&
-            this.pendingInvites.get(to)!.has(from)
-        ) {
-            this.pendingInvites.get(to)!.delete(from);
+        if (this.inviteExists(from, to)) {
+            this.removePendingInvite(from, to);
 
             fromData.inviteSentTo = undefined;
 
@@ -141,5 +124,39 @@ export class InviteManager {
         } else {
             this.notifyError(to, "No invite from this user");
         }
+    }
+
+    // Helper methods
+    private addPendingInvite(from: UserId, to: UserId) {
+        if (!this.pendingInvites.has(to)) {
+            this.pendingInvites.set(to, new Set());
+        }
+
+        this.pendingInvites.get(to)!.add(from);
+    }
+
+    private addPendingNotification(from: UserId, to: UserId) {
+        if (!this.pendingNotifications.has(to)) {
+            this.pendingNotifications.set(to, new Set());
+        }
+
+        this.pendingNotifications.get(to)!.add(from);
+    }
+
+    private removePendingInvite(from: UserId, to: UserId) {
+        if (this.pendingInvites.has(to)) {
+            this.pendingInvites.get(to)!.delete(from);
+        }
+
+        if (this.pendingNotifications.has(to)) {
+            this.pendingNotifications.get(to)!.delete(from);
+        }
+    }
+
+    private inviteExists(from: UserId, to: UserId): boolean {
+        return (
+            this.pendingInvites.has(to) &&
+            this.pendingInvites.get(to)!.has(from)
+        );
     }
 }

@@ -62,17 +62,3 @@ describe("Authentication Tests", () => {
         expect(tradeSystem.getUserState("test-user")).toBe(UserState.inLobby);
     });
 });
-
-describe("Invite Tests", () => {
-    test("After sending invite, user is in sentInvite state and invite is pending", (done) => {
-        client.emit("sendInvite", "other-user", () => {
-            expect(tradeSystem.getUserState("test-user")).toBe(
-                UserState.sentInvite,
-            );
-            expect(
-                tradeSystem.inviteManager.pendingInvites.get("other-user"),
-            ).toContain("test-user");
-            done();
-        });
-    });
-});

@@ -260,7 +260,7 @@ export class TradeServer {
     }
 
     notifyInviteCancelled(from: UserId, to: UserId) {
-        this.userIdToSocket.get(to)!.emit("inviteCancelled", to);
+        this.userIdToSocket.get(to)!.emit("inviteCancelled", from);
     }
 
     notifyInviteAccepted(from: UserId, to: UserId) {
