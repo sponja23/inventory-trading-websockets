@@ -1,5 +1,5 @@
 import { Server } from "socket.io";
-import { TradeSystem } from "./tradeSystem";
+import { TradeServer } from "./tradeSystem";
 
 const io = new Server(3000, {
     cors: {
@@ -8,4 +8,4 @@ const io = new Server(3000, {
     },
 });
 
-const system = new TradeSystem(io);
+const system = new TradeServer(io);

@@ -7,7 +7,8 @@ import {
     beforeEach,
     afterEach,
 } from "@jest/globals";
-import { TradeSystem, UserState } from "../tradeSystem";
+import { TradeServer } from "../src/tradeSystem";
+import { UserState } from "../src/types";
 
 import http from "http";
 import { Server } from "socket.io";
@@ -16,13 +17,13 @@ import { AddressInfo } from "net";
 
 let httpServer: http.Server;
 let serverAddress: AddressInfo;
-let tradeSystem: TradeSystem;
+let tradeSystem: TradeServer;
 
 beforeAll((done) => {
     httpServer = http.createServer();
     serverAddress = httpServer.listen().address() as AddressInfo;
 
-    tradeSystem = new TradeSystem(new Server(httpServer));
+    tradeSystem = new TradeServer(new Server(httpServer));
 
     done();
 });
@@ -59,5 +60,19 @@ afterEach((done) => {
 describe("Authentication Tests", () => {
     test("Authenticated user is in lobby", () => {
         expect(tradeSystem.getUserState("test-user")).toBe(UserState.inLobby);
+    });
+});
+
+describe("Invite Tests", () => {
+    test("After sending invite, user is in sentInvite state and invite is pending", (done) => {
+        client.emit("sendInvite", "other-user", () => {
+            expect(tradeSystem.getUserState("test-user")).toBe(
+                UserState.sentInvite,
+            );
+            expect(
+                tradeSystem.inviteManager.pendingInvites.get("other-user"),
+            ).toContain("test-user");
+            done();
+        });
     });
 });
