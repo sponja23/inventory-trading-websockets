@@ -1,5 +1,5 @@
 import { UserError } from "./errors";
-import { UserData, UserId } from "./types";
+import { UserId } from "./types";
 
 /**
  * An error that is thrown when an invite does not exist.
@@ -14,46 +14,61 @@ export class InvalidInviteError extends UserError {
 }
 
 /**
+ * A user's information pertaining to the invite system.
+ */
+type InviteInfo = {
+    /**
+     * The user ID of the user to which an invite was sent.
+     *
+     * Can be `undefined` if no invite was sent.
+     */
+    inviteSentTo?: UserId;
+
+    /**
+     * The set of users that have sent an invite to this user.
+     */
+    pendingInvites: Set<UserId>;
+
+    /**
+     * The set of invites that have not been sent to this user yet
+     * (because they were not connected at the time).
+     */
+    pendingNotifications: Set<UserId>;
+
+    /**
+     * Whether the user is connected.
+     */
+    connected: boolean;
+};
+
+/**
  * A manager for handling invites between users.
  *
  * This class is responsible for managing the state of invites between users.
  */
 export class InviteManager {
     /**
-     * Map from user ID to the set of users that have sent them an invite.
+     * Map from user IDs to their invite information.
      */
-    pendingInvites: Map<UserId, Set<UserId>>;
+    private readonly inviteInfo: Map<UserId, InviteInfo>;
 
-    /**
-     * Map from user ID to the set of invites that have not been sent to them yet
-     * (because they were not connected at the time).
-     */
-    pendingNotifications: Map<UserId, Set<UserId>>;
-
-    /**
-     * Set of connected userIDs.
-     */
-    connectedUsers: Set<UserId>;
-
-    readonly notifyInviteSent: (from: UserId, to: UserId) => void;
-    readonly notifyInviteAccepted: (from: UserId, to: UserId) => void;
-    readonly notifyInviteRejected: (from: UserId, to: UserId) => void;
-    readonly notifyInviteCancelled: (from: UserId, to: UserId) => void;
+    readonly onSend: (from: UserId, to: UserId) => void;
+    readonly onAccept: (from: UserId, to: UserId) => void;
+    readonly onReject: (from: UserId, to: UserId) => void;
+    readonly onCancel: (from: UserId, to: UserId) => void;
 
     constructor(
-        onInviteSent: (from: UserId, to: UserId) => void,
-        onInviteAccepted: (from: UserId, to: UserId) => void,
-        onInviteRejected: (from: UserId, to: UserId) => void,
-        onInviteCancelled: (from: UserId, to: UserId) => void,
+        onSend: (from: UserId, to: UserId) => void,
+        onAccept: (from: UserId, to: UserId) => void,
+        onReject: (from: UserId, to: UserId) => void,
+        onCancel: (from: UserId, to: UserId) => void,
     ) {
-        this.pendingInvites = new Map();
-        this.pendingNotifications = new Map();
-        this.connectedUsers = new Set();
+        this.inviteInfo = new Map();
 
-        this.notifyInviteSent = onInviteSent;
-        this.notifyInviteAccepted = onInviteAccepted;
-        this.notifyInviteRejected = onInviteRejected;
-        this.notifyInviteCancelled = onInviteCancelled;
+        this.onSend = onSend;
+        this.onAccept = onAccept;
+        this.onReject = onReject;
+        this.onCancel = onCancel;
     }
 
     /**
@@ -61,15 +76,18 @@ export class InviteManager {
      * @param userId The ID of the user that connected.
      */
     userConnected(userId: UserId) {
-        this.connectedUsers.add(userId);
+        const info = this.getInfo(userId);
+        const { pendingNotifications } = info;
 
-        if (this.pendingNotifications.has(userId)) {
-            for (const from of this.pendingNotifications.get(userId)!) {
-                this.notifyInviteSent(from, userId);
+        if (pendingNotifications.size > 0) {
+            for (const from of pendingNotifications) {
+                this.onSend(from, userId);
             }
 
-            this.pendingNotifications.delete(userId);
+            pendingNotifications.clear();
         }
+
+        info.connected = true;
     }
 
     /**
@@ -77,15 +95,22 @@ export class InviteManager {
      * @param userId The ID of the user that disconnected.
      */
     userDisconnected(userId: UserId) {
-        this.connectedUsers.delete(userId);
+        const info = this.getInfo(userId);
+        const { inviteSentTo, pendingInvites } = info;
 
-        if (this.pendingInvites.has(userId)) {
-            for (const from of this.pendingInvites.get(userId)!) {
-                this.notifyInviteCancelled(from, userId);
+        if (inviteSentTo !== undefined) {
+            this.cancelInvite(userId);
+        }
+
+        if (pendingInvites.size > 0) {
+            for (const from of pendingInvites) {
+                this.rejectInvite(from, userId);
             }
 
-            this.pendingInvites.delete(userId);
+            pendingInvites.clear();
         }
+
+        info.connected = false;
     }
 
     /**
@@ -93,21 +118,13 @@ export class InviteManager {
      * @param fromData The data of the user sending the invite.
      * @param to The ID of the user to send the invite to.
      */
-    sendInvite(fromData: UserData, to: UserId) {
-        const from = fromData.userId!;
-
-        if (fromData.inviteSentTo !== undefined) {
-            throw new Error(
-                "Internal error: user should not be able to send multiple invites",
-            );
-        }
-
+    sendInvite(from: UserId, to: UserId) {
         this.addPendingInvite(from, to);
 
-        fromData.inviteSentTo = to;
+        const toInfo = this.getInfo(to);
 
-        if (this.connectedUsers.has(to)) {
-            this.notifyInviteSent(from, to);
+        if (toInfo.connected) {
+            this.onSend(from, to);
         } else {
             this.addPendingNotification(from, to);
         }
@@ -117,9 +134,9 @@ export class InviteManager {
      * Cancels an invite sent by a user.
      * @param fromData The data of the user cancelling the invite.
      */
-    cancelInvite(fromData: UserData) {
-        const from = fromData.userId!;
-        const to = fromData.inviteSentTo;
+    cancelInvite(from: UserId) {
+        const fromInfo = this.getInfo(from);
+        const to = fromInfo.inviteSentTo;
 
         if (to === undefined) {
             throw new Error(
@@ -133,9 +150,7 @@ export class InviteManager {
 
         this.removePendingInvite(from, to);
 
-        fromData.inviteSentTo = undefined;
-
-        this.notifyInviteCancelled(from, to);
+        this.onCancel(from, to);
     }
 
     /**
@@ -143,18 +158,14 @@ export class InviteManager {
      * @param fromData The data of the user that sent the invite.
      * @param to The ID of the user that the invite was sent to.
      */
-    acceptInvite(fromData: UserData, to: UserId) {
-        const from = fromData.userId!;
-
+    acceptInvite(from: UserId, to: UserId) {
         if (!this.inviteExists(from, to)) {
             throw new InvalidInviteError(from, to);
         }
 
         this.removePendingInvite(from, to);
 
-        fromData.inviteSentTo = undefined;
-
-        this.notifyInviteAccepted(from, to);
+        this.onAccept(from, to);
     }
 
     /**
@@ -162,51 +173,74 @@ export class InviteManager {
      * @param fromData The data of the user that sent the invite.
      * @param to The ID of the user that the invite was sent to.
      */
-    rejectInvite(fromData: UserData, to: UserId) {
-        const from = fromData.userId!;
-
+    rejectInvite(from: UserId, to: UserId) {
         if (!this.inviteExists(from, to)) {
             throw new InvalidInviteError(from, to);
         }
 
         this.removePendingInvite(from, to);
 
-        fromData.inviteSentTo = undefined;
-
-        this.notifyInviteRejected(from, to);
+        this.onReject(from, to);
     }
 
     // Private methods
-    private addPendingInvite(from: UserId, to: UserId) {
-        if (!this.pendingInvites.has(to)) {
-            this.pendingInvites.set(to, new Set());
+    private getInfo(userId: UserId): InviteInfo {
+        if (!this.inviteInfo.has(userId)) {
+            this.inviteInfo.set(userId, {
+                pendingInvites: new Set(),
+                pendingNotifications: new Set(),
+                connected: false,
+            });
         }
 
-        this.pendingInvites.get(to)!.add(from);
+        return this.inviteInfo.get(userId)!;
+    }
+
+    private addPendingInvite(from: UserId, to: UserId) {
+        const fromInfo = this.getInfo(from);
+
+        if (fromInfo.inviteSentTo !== undefined) {
+            throw new Error(
+                "Internal error: user should not be able to send multiple invites",
+            );
+        }
+
+        fromInfo.inviteSentTo = to;
+
+        const toInfo = this.getInfo(to);
+
+        toInfo.pendingInvites.add(from);
     }
 
     private addPendingNotification(from: UserId, to: UserId) {
-        if (!this.pendingNotifications.has(to)) {
-            this.pendingNotifications.set(to, new Set());
-        }
+        const toInfo = this.getInfo(to);
 
-        this.pendingNotifications.get(to)!.add(from);
+        toInfo.pendingNotifications.add(from);
     }
 
     private removePendingInvite(from: UserId, to: UserId) {
-        if (this.pendingInvites.has(to)) {
-            this.pendingInvites.get(to)!.delete(from);
-        }
+        const fromInfo = this.getInfo(from);
 
-        if (this.pendingNotifications.has(to)) {
-            this.pendingNotifications.get(to)!.delete(from);
-        }
+        fromInfo.inviteSentTo = undefined;
+
+        const toInfo = this.getInfo(to);
+
+        toInfo.pendingInvites.delete(from);
     }
 
     private inviteExists(from: UserId, to: UserId): boolean {
-        return (
-            this.pendingInvites.has(to) &&
-            this.pendingInvites.get(to)!.has(from)
-        );
+        const fromInfo = this.getInfo(from);
+
+        return fromInfo.inviteSentTo === to;
+    }
+
+    // Public methods for testing
+
+    getPendingInvites(userId: UserId): Set<UserId> {
+        return this.getInfo(userId).pendingInvites;
+    }
+
+    getPendingNotifications(userId: UserId): Set<UserId> {
+        return this.getInfo(userId).pendingNotifications;
     }
 }

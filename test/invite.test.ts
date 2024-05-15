@@ -92,7 +92,7 @@ describe("Invite Tests", () => {
                 UserState.sentInvite,
             );
             expect(
-                tradeSystem.inviteManager.pendingInvites.get("other-user"),
+                tradeSystem.inviteManager.getPendingInvites("other-user"),
             ).toContain("test-user");
             done();
         });
@@ -115,7 +115,7 @@ describe("Invite Tests", () => {
                     UserState.inLobby,
                 );
                 expect(
-                    tradeSystem.inviteManager.pendingInvites.get("other-user"),
+                    tradeSystem.inviteManager.getPendingInvites("other-user"),
                 ).not.toContain("test-user");
                 done();
             });
@@ -144,7 +144,7 @@ describe("Invite Tests", () => {
                     UserState.inLobby,
                 );
                 expect(
-                    tradeSystem.inviteManager.pendingInvites.get("other-user"),
+                    tradeSystem.inviteManager.getPendingInvites("other-user"),
                 ).not.toContain("test-user");
                 done();
             });

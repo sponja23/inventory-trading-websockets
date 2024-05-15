@@ -1,7 +1,7 @@
 import { Server, Socket } from "socket.io";
 import { DefaultEventsMap } from "socket.io/dist/typed-events";
 import { Inventory, UserData, UserState, UserId } from "./types";
-import { InvalidInviteError, InviteManager } from "./inviteManager";
+import { InviteManager } from "./inviteManager";
 import { InvalidActionError, SocketErrorResponse, UserError } from "./errors";
 
 type UserActions = {
@@ -234,8 +234,6 @@ export class TradeServer {
 
         socket.data.userId = userId;
         socket.data.state = UserState.inLobby;
-        socket.data.inviteSentTo = undefined;
-        socket.data.tradeInfo = undefined;
 
         this.inviteManager.userConnected(userId);
 
@@ -247,10 +245,12 @@ export class TradeServer {
     /**
      * Handler for the "sendInvite" user action.
      * @param socket The socket that sent the action
-     * @param userId The user ID to send the invite to
+     * @param toId The user ID to send the invite to
      */
-    private handleSendInvite(socket: TradeSocket, userId: UserId) {
-        this.inviteManager.sendInvite(socket.data, userId);
+    private handleSendInvite(socket: TradeSocket, toId: UserId) {
+        const fromId = socket.data.userId!;
+
+        this.inviteManager.sendInvite(fromId, toId);
 
         this.setUserState(socket.data.userId!, UserState.sentInvite);
     }
@@ -260,7 +260,9 @@ export class TradeServer {
      * @param socket The socket that sent the action
      */
     private handleCancelInvite(socket: TradeSocket) {
-        this.inviteManager.cancelInvite(socket.data);
+        const fromId = socket.data.userId!;
+
+        this.inviteManager.cancelInvite(fromId);
 
         this.setUserState(socket.data.userId!, UserState.inLobby);
     }
@@ -271,14 +273,9 @@ export class TradeServer {
      * @param fromId The user ID that sent the invite that is being accepted
      */
     private handleAcceptInvite(socket: TradeSocket, fromId: UserId) {
-        const fromSocket = this.userIdToSocket.get(fromId);
         const toId = socket.data.userId!;
 
-        if (fromSocket === undefined) {
-            throw new InvalidInviteError(fromId, toId);
-        }
-
-        this.inviteManager.acceptInvite(fromSocket.data, toId);
+        this.inviteManager.acceptInvite(fromId, toId);
 
         this.setUserState(fromId, UserState.inTrade);
         this.setUserState(toId, UserState.inTrade);
@@ -290,14 +287,9 @@ export class TradeServer {
      * @param fromId The user ID that sent the invite that is being rejected
      */
     private handleRejectInvite(socket: TradeSocket, fromId: UserId) {
-        const fromSocket = this.userIdToSocket.get(fromId);
         const toId = socket.data.userId!;
 
-        if (fromSocket === undefined) {
-            throw new InvalidInviteError(fromId, toId);
-        }
-
-        this.inviteManager.rejectInvite(fromSocket.data, toId);
+        this.inviteManager.rejectInvite(fromId, toId);
 
         this.setUserState(fromId, UserState.inLobby);
     }
