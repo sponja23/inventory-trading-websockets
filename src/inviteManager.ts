@@ -127,7 +127,7 @@ export class InviteManager {
             );
         }
 
-        if (this.inviteExists(from, to)) {
+        if (!this.inviteExists(from, to)) {
             throw new InvalidInviteError(from, to);
         }
 
