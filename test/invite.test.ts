@@ -7,7 +7,7 @@ import {
     beforeEach,
     afterEach,
 } from "@jest/globals";
-import { TradeServer } from "../src/tradeSystem";
+import { TradeServer } from "../src/tradeServer";
 import { UserState } from "../src/types";
 
 import http from "http";

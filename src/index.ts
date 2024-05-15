@@ -1,5 +1,5 @@
 import { Server } from "socket.io";
-import { TradeServer } from "./tradeSystem";
+import { TradeServer } from "./tradeServer";
 
 const io = new Server(3000, {
     cors: {
@@ -8,4 +8,5 @@ const io = new Server(3000, {
     },
 });
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const system = new TradeServer(io);

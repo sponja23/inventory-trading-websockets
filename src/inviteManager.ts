@@ -1,10 +1,21 @@
+import { UserError } from "./errors";
 import { UserData, UserId } from "./types";
 
+/**
+ * An error that is thrown when an invite does not exist.
+ */
+export class InvalidInviteError extends UserError {
+    constructor(from: UserId, to: UserId) {
+        super(
+            `Invite from ${from} to ${to} does not exist`,
+            "InvalidInviteError",
+        );
+    }
+}
+
 export class InviteManager {
-    // users -> invites to that user
     pendingInvites: Map<UserId, Set<UserId>>;
 
-    // users -> invites to that user that have not been sent
     pendingNotifications: Map<UserId, Set<UserId>>;
 
     // users that are connected
@@ -15,14 +26,11 @@ export class InviteManager {
     readonly notifyInviteRejected: (from: UserId, to: UserId) => void;
     readonly notifyInviteCancelled: (from: UserId, to: UserId) => void;
 
-    readonly notifyError: (userId: UserId, message: string) => void;
-
     constructor(
         onInviteSent: (from: UserId, to: UserId) => void,
         onInviteAccepted: (from: UserId, to: UserId) => void,
         onInviteRejected: (from: UserId, to: UserId) => void,
         onInviteCancelled: (from: UserId, to: UserId) => void,
-        onError: (userId: UserId, message: string) => void,
     ) {
         this.pendingInvites = new Map();
         this.pendingNotifications = new Map();
@@ -32,7 +40,6 @@ export class InviteManager {
         this.notifyInviteAccepted = onInviteAccepted;
         this.notifyInviteRejected = onInviteRejected;
         this.notifyInviteCancelled = onInviteCancelled;
-        this.notifyError = onError;
     }
 
     userConnected(userId: UserId) {
@@ -63,8 +70,9 @@ export class InviteManager {
         const from = fromData.userId!;
 
         if (fromData.inviteSentTo !== undefined) {
-            this.notifyError(from, "You have already sent an invite");
-            return;
+            throw new Error(
+                "Internal error: user should not be able to send multiple invites",
+            );
         }
 
         this.addPendingInvite(from, to);
@@ -83,8 +91,9 @@ export class InviteManager {
         const to = fromData.inviteSentTo;
 
         if (to === undefined) {
-            this.notifyError(from, "You have not sent an invite");
-            return;
+            throw new Error(
+                "Internal error: user should not be able to cancel non-existent invite",
+            );
         }
 
         if (this.inviteExists(from, to)) {
@@ -94,7 +103,7 @@ export class InviteManager {
 
             this.notifyInviteCancelled(from, to);
         } else {
-            this.notifyError(from, "No invite to this user");
+            throw new InvalidInviteError(from, to);
         }
     }
 
@@ -108,7 +117,7 @@ export class InviteManager {
 
             this.notifyInviteAccepted(from, to);
         } else {
-            this.notifyError(to, "No invite from this user");
+            throw new InvalidInviteError(from, to);
         }
     }
 
@@ -122,7 +131,7 @@ export class InviteManager {
 
             this.notifyInviteRejected(from, to);
         } else {
-            this.notifyError(to, "No invite from this user");
+            throw new InvalidInviteError(from, to);
         }
     }
 

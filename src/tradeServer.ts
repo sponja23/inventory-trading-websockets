@@ -1,7 +1,13 @@
 import { Server, Socket } from "socket.io";
 import { DefaultEventsMap } from "socket.io/dist/typed-events";
 import { Inventory, UserData, UserState, UserId } from "./types";
-import { InviteManager } from "./inviteManager";
+import { InvalidInviteError, InviteManager } from "./inviteManager";
+import {
+    InternalError,
+    InvalidActionError,
+    SocketErrorResponse,
+    UserError,
+} from "./errors";
 
 type UserActions = {
     // Send the credentials to the server, validate them, and authenticate the user
@@ -37,10 +43,8 @@ const userActionList = [
 ] as (keyof UserActions)[];
 
 type ServerActions = {
-    // Notify the user that the action was successful
-    success: (message: string) => void;
-    // Notify the user that the action was unsuccessful
-    error: (message: string) => void;
+    // Notify the user that an action they attempted is invalid
+    error: (error: SocketErrorResponse) => void;
     // Notify the user that they have received an invite
     inviteReceived: (userId: UserId) => void;
     // Notify the user that an invite they received was cancelled
@@ -99,7 +103,6 @@ export class TradeServer {
             this.notifyInviteAccepted.bind(this),
             this.notifyInviteRejected.bind(this),
             this.notifyInviteCancelled.bind(this),
-            this.notifyError.bind(this),
         );
     }
 
@@ -133,11 +136,19 @@ export class TradeServer {
                     const callback = args.pop();
 
                     if (validActions.get(state)?.includes(action)) {
-                        callback(handlers.get(action)!(socket, ...args));
+                        try {
+                            callback(handlers.get(action)!(socket, ...args));
+                        } catch (error: unknown) {
+                            if (error instanceof UserError) {
+                                callback(error.toResponse());
+                            } else {
+                                throw error;
+                            }
+                        }
                     } else {
                         socket.emit(
                             "error",
-                            `Invalid action: "${action}" for state "${state}"`,
+                            new InvalidActionError(action, state).toResponse(),
                         );
                     }
                 });
@@ -167,8 +178,7 @@ export class TradeServer {
 
     private handleAuthenticate(socket: TradeSocket, userId: UserId) {
         if (this.userIdToSocket.has(userId)) {
-            socket.emit("error", `User ID "${userId}" is already connected`);
-            return UserState.noUserId;
+            throw new UserError(userId);
         }
 
         this.userIdToSocket.set(userId, socket);
@@ -202,13 +212,13 @@ export class TradeServer {
         const toId = socket.data.userId!;
 
         if (fromSocket === undefined) {
-            this.notifyError(socket.data.userId!, "User not found");
-        } else {
-            this.inviteManager.acceptInvite(fromSocket.data, toId);
-
-            this.setUserState(fromId, UserState.inTrade);
-            this.setUserState(toId, UserState.inTrade);
+            throw new InvalidInviteError(fromId, toId);
         }
+
+        this.inviteManager.acceptInvite(fromSocket.data, toId);
+
+        this.setUserState(fromId, UserState.inTrade);
+        this.setUserState(toId, UserState.inTrade);
     }
 
     private handleRejectInvite(socket: TradeSocket, fromId: UserId) {
@@ -216,12 +226,12 @@ export class TradeServer {
         const toId = socket.data.userId!;
 
         if (fromSocket === undefined) {
-            this.notifyError(socket.data.userId!, "User not found");
-        } else {
-            this.inviteManager.rejectInvite(fromSocket.data, toId);
-
-            this.setUserState(fromId, UserState.inLobby);
+            throw new InvalidInviteError(fromId, toId);
         }
+
+        this.inviteManager.rejectInvite(fromSocket.data, toId);
+
+        this.setUserState(fromId, UserState.inLobby);
     }
 
     private handleUpdateInventory(
@@ -255,24 +265,20 @@ export class TradeServer {
     //           Private Helper Methods         //
     //////////////////////////////////////////////
 
-    notifyInviteSent(from: UserId, to: UserId) {
+    private notifyInviteSent(from: UserId, to: UserId) {
         this.userIdToSocket.get(to)!.emit("inviteReceived", from);
     }
 
-    notifyInviteCancelled(from: UserId, to: UserId) {
+    private notifyInviteCancelled(from: UserId, to: UserId) {
         this.userIdToSocket.get(to)!.emit("inviteCancelled", from);
     }
 
-    notifyInviteAccepted(from: UserId, to: UserId) {
+    private notifyInviteAccepted(from: UserId, to: UserId) {
         this.userIdToSocket.get(from)!.emit("inviteAccepted", to);
     }
 
-    notifyInviteRejected(from: UserId, to: UserId) {
+    private notifyInviteRejected(from: UserId, to: UserId) {
         this.userIdToSocket.get(from)!.emit("inviteRejected", to);
-    }
-
-    notifyError(userId: UserId, message: string) {
-        this.userIdToSocket.get(userId)!.emit("error", message);
     }
 
     /////////////////////////////////////////////
