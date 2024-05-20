@@ -14,6 +14,15 @@ export class InvalidInviteError extends UserError {
 }
 
 /**
+ * An error that is thrown when a user attempts to send an invite to themselves.
+ */
+export class SelfInviteError extends UserError {
+    constructor() {
+        super("Cannot send invite to self", "SelfInviteError");
+    }
+}
+
+/**
  * A user's information pertaining to the invite system.
  */
 type InviteInfo = {
@@ -119,6 +128,10 @@ export class InviteManager {
      * @param to The ID of the user to send the invite to.
      */
     sendInvite(from: UserId, to: UserId) {
+        if (from === to) {
+            throw new SelfInviteError();
+        }
+
         this.addPendingInvite(from, to);
 
         const toInfo = this.getInfo(to);
