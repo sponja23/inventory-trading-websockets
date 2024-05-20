@@ -5,7 +5,6 @@ import { InviteManager } from "./inviteManager";
 import {
     InvalidActionError,
     SocketErrorResponse,
-    UserAlreadyAuthenticatedError,
     UserError,
 } from "./errors";
 import { TradeInfo, TradeManager } from "./tradeManager";
@@ -250,10 +249,6 @@ export class TradeServer {
      * @param userId The user ID to authenticate to
      */
     private handleAuthenticate(socket: TradeSocket, userId: UserId) {
-        if (this.userIdToSocket.has(userId)) {
-            throw new UserAlreadyAuthenticatedError(userId);
-        }
-
         this.userIdToSocket.set(userId, socket);
 
         socket.data.userId = userId;

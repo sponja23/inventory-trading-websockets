@@ -1,4 +1,4 @@
-import { UserId, UserState } from "./types";
+import { UserState } from "./types";
 
 /**
  * The response to a socket request that resulted in an error.
@@ -47,18 +47,6 @@ export class InvalidActionError extends UserError {
         public state: UserState,
     ) {
         super(`${action} for state ${state} is invalid`, "InvalidActionError");
-    }
-}
-
-/**
- * An error that is thrown when a user attempts to authenticate with an ID that is already in use.
- */
-export class UserAlreadyAuthenticatedError extends UserError {
-    constructor(userId: UserId) {
-        super(
-            `User ${userId} is already connected and authenticated.`,
-            "UserAlreadyAuthenticatedError",
-        );
     }
 }
 
