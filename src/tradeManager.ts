@@ -2,13 +2,16 @@
 import { InternalError, UserError } from "./errors";
 import { Inventory, UserId } from "./types";
 
-type UserTradeInfo = {
+// TODO: Mutual exclusion of trade operations
+
+export type UserTradeInfo = {
     userId: UserId;
     inventory: Inventory;
     lockedIn: boolean;
+    accepted: boolean;
 };
 
-type TradeInfo = [UserTradeInfo, UserTradeInfo];
+export type TradeInfo = [UserTradeInfo, UserTradeInfo];
 
 export class InventoryMistmatchError extends UserError {
     constructor(
@@ -16,6 +19,15 @@ export class InventoryMistmatchError extends UserError {
         public actualInventory: Inventory,
     ) {
         super("Inventory does not match", "InventoryMismatchError");
+    }
+}
+
+export class CantCompleteEitherUnlockedError extends UserError {
+    constructor() {
+        super(
+            "Cannot complete trade if either user is unlocked",
+            "CantCompleteEitherUnlockedError",
+        );
     }
 }
 
@@ -30,18 +42,26 @@ export class TradeManager {
 
     readonly onStart: (user1: UserId, user2: UserId) => void;
     readonly onUpdate: (userId: UserId, otherUserInventory: Inventory) => void;
-    readonly onLockIn: (userId: UserId) => void;
+    readonly onLockIn: (
+        userId: UserId,
+        selfInventory: Inventory,
+        otherInventory: Inventory,
+    ) => void;
     readonly onUnlock: (userId: UserId) => void;
-    readonly onComplete: (userId: UserId) => void;
     readonly onCancel: (userId: UserId) => void;
+    readonly onComplete: (tradeInfo: TradeInfo) => void;
 
     constructor(
         onStart: (user1: UserId, user2: UserId) => void,
         onUpdate: (userId: UserId, otherUserInventory: Inventory) => void,
-        onLockIn: (userId: UserId) => void,
+        onLockIn: (
+            userId: UserId,
+            selfInventory: Inventory,
+            otherInventory: Inventory,
+        ) => void,
         onUnlock: (userId: UserId) => void,
-        onComplete: (userId: UserId) => void,
         onCancel: (userId: UserId) => void,
+        onComplete: (tradeInfo: TradeInfo) => void,
     ) {
         this.trades = new Map();
 
@@ -49,8 +69,8 @@ export class TradeManager {
         this.onUpdate = onUpdate;
         this.onLockIn = onLockIn;
         this.onUnlock = onUnlock;
-        this.onComplete = onComplete;
         this.onCancel = onCancel;
+        this.onComplete = onComplete;
     }
 
     /**
@@ -61,8 +81,8 @@ export class TradeManager {
      */
     startTrade(user1: UserId, user2: UserId) {
         const tradeInfo: TradeInfo = [
-            { userId: user1, inventory: [], lockedIn: false },
-            { userId: user2, inventory: [], lockedIn: false },
+            { userId: user1, inventory: [], lockedIn: false, accepted: false },
+            { userId: user2, inventory: [], lockedIn: false, accepted: false },
         ];
 
         this.trades.set(user1, tradeInfo);
@@ -78,11 +98,13 @@ export class TradeManager {
      * @param inventory The new inventory for the user.
      */
     updateInventory(userId: UserId, inventory: Inventory) {
-        const [selfInfo, _] = this.getTradeInfo(userId);
+        const [selfInfo, { userId: otherId }] = this.getTradeInfo(userId);
 
         selfInfo.inventory = inventory;
 
-        this.onUpdate(userId, inventory);
+        this.unlockBothUsersFromTradeOf(userId);
+
+        this.onUpdate(otherId, inventory);
     }
 
     /**
@@ -113,7 +135,56 @@ export class TradeManager {
 
         selfInfo.lockedIn = true;
 
-        // TODO
+        this.onLockIn(otherInfo.userId, selfInventory, otherInventory);
+    }
+
+    /**
+     * Unlocks a user from a trade.
+     *
+     * @param userId The ID of the user to unlock from the trade.
+     */
+    unlock(userId: UserId) {
+        const [selfInfo, { userId: otherId }] = this.getTradeInfo(userId);
+
+        selfInfo.lockedIn = false;
+
+        this.onUnlock(otherId);
+    }
+
+    /**
+     * Cancels a trade for a user.
+     *
+     * @param userId The ID of the user to cancel the trade for.
+     */
+    cancelTrade(userId: UserId) {
+        const [_, { userId: otherId }] = this.getTradeInfo(userId);
+
+        this.trades.delete(userId);
+        this.trades.delete(otherId);
+
+        this.onCancel(otherId);
+    }
+
+    /**
+     * Completes a trade for a user.
+     *
+     * @param userId The ID of the user to complete the trade for.
+     */
+    completeTrade(userId: UserId) {
+        const [selfInfo, otherInfo] = this.getTradeInfo(userId);
+
+        if (!selfInfo.lockedIn || !otherInfo.lockedIn) {
+            throw new CantCompleteEitherUnlockedError();
+        }
+
+        selfInfo.accepted = true;
+
+        if (otherInfo.accepted) {
+            this.trades.delete(userId);
+            this.trades.delete(otherInfo.userId);
+
+            this.onComplete([selfInfo, otherInfo]);
+        }
     }
 
     /**
@@ -137,5 +208,35 @@ export class TradeManager {
         } else {
             return [info2, info1];
         }
+    }
+
+    /**
+     * Unlocks both users from a trade.
+     *
+     * @param userId The ID of one of the participating users.
+     */
+    private unlockBothUsersFromTradeOf(userId: UserId) {
+        const [selfInfo, otherInfo] = this.getTradeInfo(userId);
+
+        if (selfInfo.lockedIn) {
+            selfInfo.lockedIn = false;
+            this.onUnlock(otherInfo.userId);
+        }
+
+        if (otherInfo.lockedIn) {
+            otherInfo.lockedIn = false;
+            this.onUnlock(userId);
+        }
+    }
+
+    /**
+     * Return the trade partner of a user.
+     *
+     * @param userId The ID of the user to get the trade partner for.
+     */
+    getTradePartner(userId: UserId) {
+        const [_, { userId: otherId }] = this.getTradeInfo(userId);
+
+        return otherId;
     }
 }
