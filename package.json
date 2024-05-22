@@ -1,33 +1,33 @@
 {
-  "name": "inventory-trading-websockets",
-  "version": "0.1.0",
-  "description": "Inventory Trading Server using WebSockets",
-  "main": "dist/index.js",
-  "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "lint": "eslint . --ext .ts",
-    "format": "prettier --write .",
-    "test": "jest"
-  },
-  "author": "sponja23",
-  "license": "MIT",
-  "devDependencies": {
-    "@jest/globals": "^29.7.0",
-    "@types/eslint": "^8.56.6",
-    "@types/node": "^20.11.30",
-    "@typescript-eslint/eslint-plugin": "^7.3.1",
-    "@typescript-eslint/parser": "^7.3.1",
-    "eslint": "^8.57.0",
-    "eslint-config-prettier": "^9.1.0",
-    "jest": "^29.7.0",
-    "prettier": "^3.2.5",
-    "socket.io-client": "^4.7.5",
-    "ts-jest": "^29.1.2",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.4.3"
-  },
-  "dependencies": {
-    "socket.io": "^4.7.5"
-  }
+    "name": "inventory-trading-websockets",
+    "version": "0.1.0",
+    "description": "Inventory Trading Server using WebSockets",
+    "main": "dist/src/index.js",
+    "scripts": {
+        "build": "tsc",
+        "start": "node dist/index.js",
+        "lint": "eslint . --ext .ts",
+        "format": "prettier --write .",
+        "test": "jest"
+    },
+    "author": "sponja23",
+    "license": "MIT",
+    "devDependencies": {
+        "@jest/globals": "^29.7.0",
+        "@types/eslint": "^8.56.6",
+        "@types/node": "^20.11.30",
+        "@typescript-eslint/eslint-plugin": "^7.3.1",
+        "@typescript-eslint/parser": "^7.3.1",
+        "eslint": "^8.57.0",
+        "eslint-config-prettier": "^9.1.0",
+        "jest": "^29.7.0",
+        "prettier": "^3.2.5",
+        "socket.io-client": "^4.7.5",
+        "ts-jest": "^29.1.2",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.4.3"
+    },
+    "dependencies": {
+        "socket.io": "^4.7.5"
+    }
 }
