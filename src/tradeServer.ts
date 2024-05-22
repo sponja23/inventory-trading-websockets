@@ -2,11 +2,7 @@ import { Server, Socket } from "socket.io";
 import { DefaultEventsMap } from "socket.io/dist/typed-events";
 import { Inventory, UserData, UserState, UserId } from "./types";
 import { InviteManager } from "./inviteManager";
-import {
-    InvalidActionError,
-    SocketErrorResponse,
-    UserError,
-} from "./errors";
+import { InvalidActionError, SocketErrorResponse, UserError } from "./errors";
 import { TradeInfo, TradeManager } from "./tradeManager";
 
 type UserActions = {
@@ -189,6 +185,7 @@ export class TradeServer {
             ["lockIn", this.handleLockIn.bind(this)],
             ["unlock", this.handleUnlock.bind(this)],
             ["cancelTrade", this.handleCancelTrade.bind(this)],
+            ["completeTrade", this.handleCompleteTrade.bind(this)],
         ]);
 
         this.io.on("connection", (socket) => {
@@ -393,7 +390,7 @@ export class TradeServer {
     }
 
     private notifyInviteCancelled(from: UserId, to: UserId) {
-        this.userIdToSocket.get(to)!.emit("inviteCancelled", from);
+        this.userIdToSocket.get(to)?.emit("inviteCancelled", from);
     }
 
     private notifyInviteAccepted(from: UserId, to: UserId) {
@@ -409,6 +406,8 @@ export class TradeServer {
     private notifyTradeStarted(user1: UserId, user2: UserId) {
         this.userIdToSocket.get(user1)!.emit("tradeStarted", user2);
         this.userIdToSocket.get(user2)!.emit("tradeStarted", user1);
+
+        console.log("Trade started between", user1, "and", user2);
     }
 
     private notifyInventoryUpdated(userId: UserId, inventory: Inventory) {
@@ -431,6 +430,8 @@ export class TradeServer {
 
     private notifyTradeCancelled(userId: UserId) {
         this.userIdToSocket.get(userId)!.emit("tradeCancelled");
+
+        console.log("Trade cancelled for", userId);
     }
 
     private performTrade([user1Info, user2Info]: TradeInfo) {

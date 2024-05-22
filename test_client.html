@@ -40,6 +40,10 @@
                 <h1>User Information</h1>
                 <p><strong>Username:</strong> <span id="username"></span></p>
             </aside>
+
+            <button id="invite">Invite User</button>
+
+            <ul id="invites"></ul>
         </main>
     </body>
     <script type="module">
@@ -54,7 +58,79 @@
 
         // Send the username to the server
         socket.emit("authenticate", username, (response) => {
-            alert(response);
+            console.log(response && response.errorMessage);
+        });
+
+        function inviteUser() {
+            const invitee = prompt(
+                "Enter the username of the user you want to invite:",
+            );
+            socket.emit("sendInvite", invitee, (response) => {
+                console.log(response && response.errorMessage);
+            });
+
+            // Disable button
+            document.getElementById("invite").disabled = true;
+        }
+
+        document.getElementById("invite").addEventListener("click", inviteUser);
+
+        socket.on("inviteReceived", (from) => {
+            const inviteElem = document.createElement("li");
+            inviteElem.id = `invite-${from}`;
+            inviteElem.textContent = `${from} has invited you to trade`;
+
+            const acceptBtn = document.createElement("button");
+            acceptBtn.textContent = "Accept";
+            acceptBtn.addEventListener("click", () => {
+                socket.emit("acceptInvite", from, (response) => {
+                    console.log(response && response.errorMessage);
+                    document
+                        .getElementById("invites")
+                        .removeChild(document.getElementById(`invite-${from}`));
+                });
+            });
+
+            const rejectBtn = document.createElement("button");
+            rejectBtn.textContent = "Reject";
+            rejectBtn.addEventListener("click", () => {
+                socket.emit("rejectInvite", from, (response) => {
+                    console.log(response && response.errorMessage);
+                    document
+                        .getElementById("invites")
+                        .removeChild(document.getElementById(`invite-${from}`));
+                });
+            });
+
+            inviteElem.appendChild(acceptBtn);
+            inviteElem.appendChild(rejectBtn);
+
+            document.getElementById("invites").appendChild(inviteElem);
+        });
+
+        socket.on("inviteAccepted", (from) => {
+            alert(`${from} has accepted your trade invite`);
+
+            // Enable button
+            document.getElementById("invite").disabled = false;
+        });
+
+        socket.on("inviteRejected", (from) => {
+            alert(`${from} has rejected your trade invite`);
+
+            // Enable button
+            document.getElementById("invite").disabled = false;
+        });
+
+        socket.on("inviteCancelled", (from) => {
+            alert(`${from} has cancelled the trade invite`);
+
+            // Enable button
+            document.getElementById("invite").disabled = false;
+        });
+
+        socket.on("tradeStarted", (from) => {
+            alert(`Trade started with ${from}`);
         });
     </script>
 </html>
