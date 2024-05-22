@@ -8,5 +8,4 @@ const io = new Server(9000, {
     },
 });
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const system = new TradeServer(io);
+new TradeServer(io);
