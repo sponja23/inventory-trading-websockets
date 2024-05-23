@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import http from "http";
 import { Server } from "socket.io";
 import ioc, { Socket } from "socket.io-client";
@@ -5,11 +6,69 @@ import { AddressInfo } from "net";
 import { TradeServer } from "../src/tradeServer";
 import { afterAll, afterEach, beforeAll, beforeEach } from "@jest/globals";
 
+/**
+ * A wrapper around a socket.io client that allows for async operations.
+ */
+export class AsyncSocket {
+    private socket: Socket;
+
+    constructor(socket: Socket) {
+        this.socket = socket;
+    }
+
+    /**
+     * Register a callback for an event.
+     * @param event The event to listen for.
+     * @param callback The callback to run when the event is received.
+     */
+    public on(event: string, callback: (...args: any[]) => Promise<void>) {
+        this.socket.on(event, callback);
+    }
+
+    /**
+     * Wait for an event to be received.
+     * @param event The event to wait for.
+     * @returns A promise that resolves when the event is received.
+     */
+    public waitFor(event: string) {
+        return new Promise<void>((resolve) => {
+            this.socket.on(event, () => {
+                resolve();
+            });
+        });
+    }
+
+    /**
+     * Emit an event.
+     * @param event The event to emit.
+     * @param args The arguments to send with the event.
+     */
+    public emit(event: string, ...args: any[]) {
+        return new Promise<void>((resolve, reject) => {
+            this.socket.emit(event, ...args, (err: any) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            });
+        });
+    }
+
+    public disconnect() {
+        this.socket.disconnect();
+    }
+
+    public get connected() {
+        return this.socket.connected;
+    }
+}
+
 export class TradeServerTestHarness {
     private httpServer: http.Server | null = null;
     private serverAddress: AddressInfo | null = null;
     public tradeSystem: TradeServer | null = null;
-    public clients: (Socket | null)[] = [];
+    public clients: (AsyncSocket | null)[] = [];
 
     constructor(clientNames: string[]) {
         this.clients = new Array(clientNames.length).fill(null);
@@ -36,10 +95,9 @@ export class TradeServerTestHarness {
             beforeEach((done) => {
                 const client = this.newSocket();
 
-                client.on("connect", () => {
-                    client.emit("authenticate", name, () => {
-                        done();
-                    });
+                client.on("connect", async () => {
+                    await client.emit("authenticate", name);
+                    done();
                 });
 
                 this.clients[i] = client;
@@ -56,26 +114,28 @@ export class TradeServerTestHarness {
     }
 
     public newSocket() {
-        return ioc(
-            `http://[${this.serverAddress!.address}]:${this.serverAddress!.port}`,
-            {
-                multiplex: false,
-            },
+        return new AsyncSocket(
+            ioc(
+                `http://[${this.serverAddress!.address}]:${this.serverAddress!.port}`,
+                {
+                    multiplex: false,
+                },
+            ),
         );
     }
 
     public withNewClient(
         newClientName: string,
-        callback: (newClient: Socket, done: () => void) => void,
+        callback: (newClient: AsyncSocket) => Promise<void>,
     ) {
         const newClient = this.newSocket();
 
-        newClient.on("connect", () => {
-            newClient.emit("authenticate", newClientName, () => {
-                callback(newClient, () => {
-                    if (newClient.connected) newClient.disconnect();
-                });
-            });
+        newClient.on("connect", async () => {
+            await newClient.emit("authenticate", newClientName);
+
+            await callback(newClient);
+
+            newClient.disconnect();
         });
     }
 }

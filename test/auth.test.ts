@@ -2,6 +2,7 @@ import { describe, test, expect } from "@jest/globals";
 import { UserState } from "../src/types";
 import { TradeServerTestHarness } from "./utils";
 import { SocketErrorResponse } from "../src/errors";
+import { fail } from "assert";
 
 describe("Authentication Tests", () => {
     const harness = new TradeServerTestHarness(["test-user"]);
@@ -12,34 +13,30 @@ describe("Authentication Tests", () => {
         );
     });
 
-    test("User can't authenticate twice", (done) => {
-        harness.clients[0]!.emit(
-            "authenticate",
-            "test-user",
-            (err: SocketErrorResponse) => {
-                expect(err.errorName).toBe("InvalidActionError");
-                done();
-            },
+    test("User can't authenticate twice", async () => {
+        try {
+            await harness.clients[0]!.emit("authenticate", "test-user");
+            fail("Expected error to be thrown");
+        } catch (err) {
+            expect((err as SocketErrorResponse).errorName).toBe(
+                "InvalidActionError",
+            );
+        }
+    });
+
+    test("Authenticated user can log out", async () => {
+        await harness.clients[0]!.emit("logOut");
+        expect(harness.tradeSystem!.getUserState("test-user")).toBe(
+            UserState.noUserId,
         );
     });
 
-    test("Authenticated user can log out", (done) => {
-        harness.clients[0]!.emit("logOut", () => {
-            expect(harness.tradeSystem!.getUserState("test-user")).toBe(
-                UserState.noUserId,
-            );
-            done();
-        });
-    });
+    test("Logged out user can authenticate again", async () => {
+        await harness.clients[0]!.emit("logOut");
+        await harness.clients[0]!.emit("authenticate", "test-user");
 
-    test("Logged out user can authenticate again", (done) => {
-        harness.clients[0]!.emit("logOut", () => {
-            harness.clients[0]!.emit("authenticate", "test-user", () => {
-                expect(harness.tradeSystem!.getUserState("test-user")).toBe(
-                    UserState.inLobby,
-                );
-                done();
-            });
-        });
+        expect(harness.tradeSystem!.getUserState("test-user")).toBe(
+            UserState.inLobby,
+        );
     });
 });
