@@ -478,4 +478,14 @@ export class TradeServer {
             socket.data.state = state;
         }
     }
+
+    // User Invites
+
+    getPendingInvites(userId: UserId): Set<UserId> {
+        return this.inviteManager.getPendingInvites(userId);
+    }
+
+    getSentInvite(userId: UserId): UserId | undefined {
+        return this.inviteManager.getSentInvite(userId);
+    }
 }

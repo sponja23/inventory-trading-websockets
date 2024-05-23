@@ -225,4 +225,8 @@ export class InviteManager {
     getPendingInvites(userId: UserId): Set<UserId> {
         return this.getInfo(userId).pendingInvites;
     }
+
+    getSentInvite(userId: UserId): UserId | undefined {
+        return this.getInfo(userId).inviteSentTo;
+    }
 }

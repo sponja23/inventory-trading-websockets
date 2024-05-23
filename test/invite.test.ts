@@ -19,9 +19,12 @@ describe("Invite Tests", () => {
         expect(harness.tradeSystem!.getUserState("test-user")).toBe(
             UserState.sentInvite,
         );
-        expect(
-            harness.tradeSystem!.inviteManager.getPendingInvites("other-user"),
-        ).toContain("test-user");
+        expect(harness.tradeSystem!.getSentInvite("test-user")).toBe(
+            "other-user",
+        );
+        expect(harness.tradeSystem!.getPendingInvites("other-user")).toContain(
+            "test-user",
+        );
     });
 
     test("After sending invite, other user receives invite", (done) => {
@@ -42,7 +45,7 @@ describe("Invite Tests", () => {
             UserState.inLobby,
         );
         expect(
-            harness.tradeSystem!.inviteManager.getPendingInvites("other-user"),
+            harness.tradeSystem!.getPendingInvites("other-user"),
         ).not.toContain("test-user");
     });
 
@@ -67,7 +70,7 @@ describe("Invite Tests", () => {
         );
 
         expect(
-            harness.tradeSystem!.inviteManager.getPendingInvites("other-user"),
+            harness.tradeSystem!.getPendingInvites("other-user"),
         ).not.toContain("test-user");
     });
 
@@ -111,9 +114,9 @@ describe("Invite Tests", () => {
         await harness.clients[0]!.emit("cancelInvite", "other-user");
         await harness.clients[0]!.emit("sendInvite", "other-user");
 
-        expect(
-            harness.tradeSystem!.inviteManager.getPendingInvites("other-user"),
-        ).toContain("test-user");
+        expect(harness.tradeSystem!.getPendingInvites("other-user")).toContain(
+            "test-user",
+        );
     });
 
     // After invite rejected, another invite can be sent
@@ -122,9 +125,9 @@ describe("Invite Tests", () => {
         await harness.clients[1]!.emit("rejectInvite", "test-user");
         await harness.clients[0]!.emit("sendInvite", "other-user");
 
-        expect(
-            harness.tradeSystem!.inviteManager.getPendingInvites("other-user"),
-        ).toContain("test-user");
+        expect(harness.tradeSystem!.getPendingInvites("other-user")).toContain(
+            "test-user",
+        );
     });
 
     // Multiple invites can be received
