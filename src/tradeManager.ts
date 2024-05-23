@@ -239,4 +239,10 @@ export class TradeManager {
 
         return otherId;
     }
+
+    // Accessors for testing
+
+    getTradeInventory(userId: UserId) {
+        return this.getTradeInfo(userId)[0].inventory;
+    }
 }

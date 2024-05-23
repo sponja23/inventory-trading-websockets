@@ -237,6 +237,13 @@ export class TradeServer {
         this.io.close();
     }
 
+    setUserState(userId: UserId, state: UserState) {
+        const socket = this.userIdToSocket.get(userId);
+        if (socket) {
+            socket.data.state = state;
+        }
+    }
+
     /////////////////////////////////////////////
     //        Handlers for User Actions        //
     /////////////////////////////////////////////
@@ -472,14 +479,7 @@ export class TradeServer {
         );
     }
 
-    setUserState(userId: UserId, state: UserState) {
-        const socket = this.userIdToSocket.get(userId);
-        if (socket) {
-            socket.data.state = state;
-        }
-    }
-
-    // User Invites
+    // Invites
 
     getPendingInvites(userId: UserId): Set<UserId> {
         return this.inviteManager.getPendingInvites(userId);
@@ -487,5 +487,11 @@ export class TradeServer {
 
     getSentInvite(userId: UserId): UserId | undefined {
         return this.inviteManager.getSentInvite(userId);
+    }
+
+    // Trading
+
+    getTradeInventory(userId: UserId): Inventory {
+        return this.tradeManager.getTradeInventory(userId);
     }
 }

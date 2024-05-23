@@ -68,30 +68,26 @@ export class TradeServerTestHarness {
     private httpServer: http.Server | null = null;
     private serverAddress: AddressInfo | null = null;
     public tradeSystem: TradeServer | null = null;
-    public clients: (AsyncSocket | null)[] = [];
+    public clients: Record<string, AsyncSocket>;
 
     constructor(clientNames: string[]) {
-        this.clients = new Array(clientNames.length).fill(null);
+        this.clients = {};
 
-        beforeAll((done) => {
+        beforeAll(() => {
             this.httpServer = http.createServer();
             this.serverAddress = this.httpServer
                 .listen()
                 .address() as AddressInfo;
 
             this.tradeSystem = new TradeServer(new Server(this.httpServer));
-
-            done();
         });
 
-        afterAll((done) => {
+        afterAll(() => {
             this.tradeSystem!.close();
             this.httpServer!.close();
-
-            done();
         });
 
-        clientNames.forEach((name, i) => {
+        clientNames.forEach((name) => {
             beforeEach((done) => {
                 const client = this.newSocket();
 
@@ -100,15 +96,13 @@ export class TradeServerTestHarness {
                     done();
                 });
 
-                this.clients[i] = client;
+                this.clients[name] = client;
             });
 
-            afterEach((done) => {
-                if (this.clients[i]!.connected) {
-                    this.clients[i]!.disconnect();
+            afterEach(() => {
+                if (this.clients[name].connected) {
+                    this.clients[name].disconnect();
                 }
-
-                done();
             });
         });
     }

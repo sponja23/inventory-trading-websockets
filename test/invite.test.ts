@@ -14,7 +14,7 @@ describe("Invite Tests", () => {
 
     // Sending invite tests
     test("After sending invite, user is in sentInvite state and invite is pending", async () => {
-        await harness.clients[0]!.emit("sendInvite", "other-user");
+        await harness.clients["test-user"].emit("sendInvite", "other-user");
 
         expect(harness.tradeSystem!.getUserState("test-user")).toBe(
             UserState.sentInvite,
@@ -28,18 +28,18 @@ describe("Invite Tests", () => {
     });
 
     test("After sending invite, other user receives invite", (done) => {
-        harness.clients[1]!.on("inviteReceived", async (from) => {
+        harness.clients["other-user"].on("inviteReceived", async (from) => {
             expect(from).toBe("test-user");
             done();
         });
 
-        harness.clients[0]!.emit("sendInvite", "other-user");
+        harness.clients["test-user"].emit("sendInvite", "other-user");
     });
 
     // Cancelling invite tests
     test("After cancelling invite, user is in lobby and invite is removed", async () => {
-        await harness.clients[0]!.emit("sendInvite", "other-user");
-        await harness.clients[0]!.emit("cancelInvite", "other-user");
+        await harness.clients["test-user"].emit("sendInvite", "other-user");
+        await harness.clients["test-user"].emit("cancelInvite", "other-user");
 
         expect(harness.tradeSystem!.getUserState("test-user")).toBe(
             UserState.inLobby,
@@ -50,20 +50,20 @@ describe("Invite Tests", () => {
     });
 
     test("After cancelling invite, other user is notified", (done) => {
-        harness.clients[1]!.on("inviteCancelled", async (from) => {
+        harness.clients["other-user"].on("inviteCancelled", async (from) => {
             expect(from).toBe("test-user");
             done();
         });
 
-        harness.clients[0]!.emit("sendInvite", "other-user").then(() =>
-            harness.clients[0]!.emit("cancelInvite", "other-user"),
+        harness.clients["test-user"].emit("sendInvite", "other-user").then(() =>
+            harness.clients["test-user"].emit("cancelInvite", "other-user"),
         );
     });
 
     // Rejecting invite tests
     test("After rejecting invite, user is in lobby and invite is removed", async () => {
-        await harness.clients[0]!.emit("sendInvite", "other-user");
-        await harness.clients[1]!.emit("rejectInvite", "test-user");
+        await harness.clients["test-user"].emit("sendInvite", "other-user");
+        await harness.clients["other-user"].emit("rejectInvite", "test-user");
 
         expect(harness.tradeSystem!.getUserState("test-user")).toBe(
             UserState.inLobby,
@@ -75,7 +75,7 @@ describe("Invite Tests", () => {
     });
 
     test("After rejecting invite, other user is notified", (done) => {
-        harness.clients[0]!.on("inviteRejected", async (to) => {
+        harness.clients["test-user"].on("inviteRejected", async (to) => {
             expect(to).toBe("other-user");
 
             expect(harness.tradeSystem!.getUserState("test-user")).toBe(
@@ -85,17 +85,17 @@ describe("Invite Tests", () => {
             done();
         });
 
-        harness.clients[1]!.on("inviteReceived", async () => {
-            harness.clients[1]!.emit("rejectInvite", "test-user");
+        harness.clients["other-user"].on("inviteReceived", async () => {
+            harness.clients["other-user"].emit("rejectInvite", "test-user");
         });
 
-        harness.clients[0]!.emit("sendInvite", "other-user");
+        harness.clients["test-user"].emit("sendInvite", "other-user");
     });
 
     // Accepting invite tests
     test("After accepting invite, both users are in trade", async () => {
-        await harness.clients[0]!.emit("sendInvite", "other-user");
-        await harness.clients[1]!.emit("acceptInvite", "test-user");
+        await harness.clients["test-user"].emit("sendInvite", "other-user");
+        await harness.clients["other-user"].emit("acceptInvite", "test-user");
 
         expect(harness.tradeSystem!.getUserState("test-user")).toBe(
             UserState.inTrade,
@@ -110,9 +110,9 @@ describe("Invite Tests", () => {
 
     // After cancelling invite, another invite can be sent
     test("After cancelling invite, another invite can be sent", async () => {
-        await harness.clients[0]!.emit("sendInvite", "other-user");
-        await harness.clients[0]!.emit("cancelInvite", "other-user");
-        await harness.clients[0]!.emit("sendInvite", "other-user");
+        await harness.clients["test-user"].emit("sendInvite", "other-user");
+        await harness.clients["test-user"].emit("cancelInvite", "other-user");
+        await harness.clients["test-user"].emit("sendInvite", "other-user");
 
         expect(harness.tradeSystem!.getPendingInvites("other-user")).toContain(
             "test-user",
@@ -121,9 +121,9 @@ describe("Invite Tests", () => {
 
     // After invite rejected, another invite can be sent
     test("After rejecting invite, another invite can be sent", async () => {
-        await harness.clients[0]!.emit("sendInvite", "other-user");
-        await harness.clients[1]!.emit("rejectInvite", "test-user");
-        await harness.clients[0]!.emit("sendInvite", "other-user");
+        await harness.clients["test-user"].emit("sendInvite", "other-user");
+        await harness.clients["other-user"].emit("rejectInvite", "test-user");
+        await harness.clients["test-user"].emit("sendInvite", "other-user");
 
         expect(harness.tradeSystem!.getPendingInvites("other-user")).toContain(
             "test-user",
@@ -134,22 +134,22 @@ describe("Invite Tests", () => {
     test("Multiple invites can be received", (done) => {
         let receivedCount = 0;
 
-        harness.clients[0]!.on("inviteReceived", async () => {
+        harness.clients["test-user"].on("inviteReceived", async () => {
             if (++receivedCount === 2) {
                 done();
             }
         });
 
-        harness.clients[1]!.emit("sendInvite", "test-user");
-        harness.clients[2]!.emit("sendInvite", "test-user");
+        harness.clients["other-user"].emit("sendInvite", "test-user");
+        harness.clients["other-user-2"].emit("sendInvite", "test-user");
     });
 
     // Can't send multiple invites
     test("Can't send multiple invites", async () => {
-        await harness.clients[0]!.emit("sendInvite", "other-user");
+        await harness.clients["test-user"].emit("sendInvite", "other-user");
 
         try {
-            await harness.clients[0]!.emit("sendInvite", "other-user-2");
+            await harness.clients["test-user"].emit("sendInvite", "other-user-2");
             fail("Expected error to be thrown");
         } catch (err: unknown) {
             expect((err as SocketErrorResponse).errorName).toEqual(
@@ -160,7 +160,7 @@ describe("Invite Tests", () => {
 
     // Disconnected users
     test("After disconnecting, invites sent are cancelled", (done) => {
-        harness.clients[0]!.on("inviteCancelled", async (from) => {
+        harness.clients["test-user"].on("inviteCancelled", async (from) => {
             expect(from).toBe("new-user");
             done();
         });
@@ -172,7 +172,7 @@ describe("Invite Tests", () => {
 
     test("After disconnecting, invites received are not rejected, and are re-sent when connecting", (done) => {
         harness.withNewClient("new-user", async (newClient) => {
-            await harness.clients[0]!.emit("sendInvite", "new-user");
+            await harness.clients["test-user"].emit("sendInvite", "new-user");
 
             newClient.disconnect();
 
@@ -197,7 +197,7 @@ describe("Invite Tests", () => {
     // Can't send invite to self
     test("Can't send invite to self", async () => {
         try {
-            await harness.clients[0]!.emit("sendInvite", "test-user");
+            await harness.clients["test-user"].emit("sendInvite", "test-user");
             fail("Expected error to be thrown");
         } catch (err: unknown) {
             expect((err as SocketErrorResponse).errorName).toEqual(
@@ -209,7 +209,7 @@ describe("Invite Tests", () => {
     // Can't cancel invite that doesn't exist
     test("Can't cancel invite that doesn't exist", async () => {
         try {
-            await harness.clients[0]!.emit("cancelInvite", "other-user");
+            await harness.clients["test-user"].emit("cancelInvite", "other-user");
             fail("Expected error to be thrown");
         } catch (err: unknown) {
             expect((err as SocketErrorResponse).errorName).toEqual(
@@ -221,7 +221,7 @@ describe("Invite Tests", () => {
     // Can't reject invite that doesn't exist
     test("Can't reject invite that doesn't exist", async () => {
         try {
-            await harness.clients[0]!.emit("rejectInvite", "other-user");
+            await harness.clients["test-user"].emit("rejectInvite", "other-user");
             fail("Expected error to be thrown");
         } catch (err: unknown) {
             expect((err as SocketErrorResponse).errorName).toEqual(
@@ -233,7 +233,7 @@ describe("Invite Tests", () => {
     // Can't accept invite that doesn't exist
     test("Can't accept invite that doesn't exist", async () => {
         try {
-            await harness.clients[0]!.emit("acceptInvite", "other-user");
+            await harness.clients["test-user"].emit("acceptInvite", "other-user");
             fail("Expected error to be thrown");
         } catch (err: unknown) {
             expect((err as SocketErrorResponse).errorName).toEqual(
