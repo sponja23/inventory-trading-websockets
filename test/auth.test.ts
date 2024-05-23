@@ -22,4 +22,24 @@ describe("Authentication Tests", () => {
             },
         );
     });
+
+    test("Authenticated user can log out", (done) => {
+        harness.clients[0]!.emit("logOut", () => {
+            expect(harness.tradeSystem!.getUserState("test-user")).toBe(
+                UserState.noUserId,
+            );
+            done();
+        });
+    });
+
+    test("Logged out user can authenticate again", (done) => {
+        harness.clients[0]!.emit("logOut", () => {
+            harness.clients[0]!.emit("authenticate", "test-user", () => {
+                expect(harness.tradeSystem!.getUserState("test-user")).toBe(
+                    UserState.inLobby,
+                );
+                done();
+            });
+        });
+    });
 });

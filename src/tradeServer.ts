@@ -11,6 +11,10 @@ type UserActions = {
      */
     authenticate: (userId: UserId) => void;
     /**
+     * Log out the user
+     */
+    logOut: () => void;
+    /**
      * Send an invite to another user
      */
     sendInvite: (userId: UserId) => void;
@@ -50,6 +54,7 @@ type UserActions = {
 
 const userActionList = [
     "authenticate",
+    "logOut",
     "sendInvite",
     "cancelInvite",
     "acceptInvite",
@@ -113,7 +118,10 @@ type TradeSocket = Socket<
 
 const validActions = new Map<UserState, (keyof UserActions)[]>([
     [UserState.noUserId, ["authenticate"]],
-    [UserState.inLobby, ["sendInvite", "acceptInvite", "rejectInvite"]],
+    [
+        UserState.inLobby,
+        ["sendInvite", "acceptInvite", "rejectInvite", "logOut"],
+    ],
     [UserState.sentInvite, ["cancelInvite", "acceptInvite", "rejectInvite"]],
     [UserState.inTrade, ["updateInventory", "lockIn", "cancelTrade"]],
     [UserState.lockedIn, ["unlock", "completeTrade"]],
@@ -177,6 +185,7 @@ export class TradeServer {
             (socket: TradeSocket, ...args: any) => any
         >([
             ["authenticate", this.handleAuthenticate.bind(this)],
+            ["logOut", this.handleLogOut.bind(this)],
             ["sendInvite", this.handleSendInvite.bind(this)],
             ["cancelInvite", this.handleCancelInvite.bind(this)],
             ["acceptInvite", this.handleAcceptInvite.bind(this)],
@@ -219,15 +228,7 @@ export class TradeServer {
             }
 
             socket.on("disconnect", () => {
-                if (socket.data.userId) {
-                    this.inviteManager.userDisconnected(socket.data.userId);
-
-                    this.userIdToSocket.delete(socket.data.userId);
-
-                    console.log(
-                        `User "${socket.data.userId}" has disconnected`,
-                    );
-                }
+                if (socket.data.userId) this.handleLogOut(socket);
             });
         });
     }
@@ -256,6 +257,21 @@ export class TradeServer {
         console.log(`User "${userId}" has connected`);
 
         this.setUserState(userId, UserState.inLobby);
+    }
+
+    /**
+     * Handler for the "logOut" user action.
+     * @param socket The socket that sent the action
+     */
+    private handleLogOut(socket: TradeSocket) {
+        const userId = socket.data.userId!;
+
+        this.inviteManager.userDisconnected(userId);
+
+        this.setUserState(userId, UserState.noUserId);
+        this.userIdToSocket.delete(userId);
+
+        console.log(`User "${userId}" has logged out`);
     }
 
     /**
