@@ -132,4 +132,15 @@ export class TradeServerTestHarness {
             newClient.disconnect();
         });
     }
+
+    public startTradeBetween(client1: string, client2: string) {
+        return new Promise<void>((resolve) => {
+            this.clients[client2].on("inviteReceived", async () => {
+                await this.clients[client2]!.emit("acceptInvite", "test-user");
+                resolve();
+            });
+
+            this.clients[client1].emit("sendInvite", client2);
+        });
+    }
 }

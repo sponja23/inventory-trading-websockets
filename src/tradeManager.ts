@@ -31,6 +31,26 @@ export class CantCompleteEitherUnlockedError extends UserError {
     }
 }
 
+/**
+ * Compare 2 inventories for equality.
+ */
+export function inventoriesEqual(inventory1: Inventory, inventory2: Inventory) {
+    if (inventory1.length != inventory2.length) {
+        return false;
+    }
+
+    const sortedInventory1 = inventory1.slice().sort();
+    const sortedInventory2 = inventory2.slice().sort();
+
+    for (let i = 0; i < inventory1.length; i++) {
+        if (inventory1[i] != inventory2[i]) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 export class TradeManager {
     /**
      * Map from user IDs to their trade info.
@@ -119,14 +139,14 @@ export class TradeManager {
     ) {
         const [selfInfo, otherInfo] = this.getTradeInfo(userId);
 
-        if (selfInventory != selfInfo.inventory) {
+        if (!inventoriesEqual(selfInfo.inventory, selfInventory)) {
             throw new InventoryMistmatchError(
                 selfInfo.inventory,
                 selfInventory,
             );
         }
 
-        if (otherInventory != otherInfo.inventory) {
+        if (!inventoriesEqual(otherInfo.inventory, otherInventory)) {
             throw new InventoryMistmatchError(
                 otherInfo.inventory,
                 otherInventory,
