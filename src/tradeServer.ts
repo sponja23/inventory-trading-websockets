@@ -159,17 +159,17 @@ export class TradeServer {
         this.io = _io;
         this.setupSocketEvents();
         this.inviteManager = new InviteManager(
-            this.notifyInviteSent.bind(this),
-            this.notifyInviteAccepted.bind(this),
-            this.notifyInviteRejected.bind(this),
-            this.notifyInviteCancelled.bind(this),
+            this.inviteSent.bind(this),
+            this.inviteAccepted.bind(this),
+            this.inviteRejected.bind(this),
+            this.inviteCancelled.bind(this),
         );
 
         this.tradeManager = new TradeManager(
-            this.notifyTradeStarted.bind(this),
-            this.notifyInventoryUpdated.bind(this),
-            this.notifyLockedIn.bind(this),
-            this.notifyUnlocked.bind(this),
+            this.tradeStarted.bind(this),
+            this.inventoryUpdated.bind(this),
+            this.lockedIn.bind(this),
+            this.unlocked.bind(this),
             this.notifyTradeCancelled.bind(this),
             this.performTrade.bind(this),
         );
@@ -276,6 +276,7 @@ export class TradeServer {
         this.inviteManager.userDisconnected(userId);
 
         this.setUserState(userId, UserState.noUserId);
+
         this.userIdToSocket.delete(userId);
 
         console.log(`User "${userId}" has logged out`);
@@ -290,8 +291,6 @@ export class TradeServer {
         const fromId = socket.data.userId!;
 
         this.inviteManager.sendInvite(fromId, toId);
-
-        this.setUserState(socket.data.userId!, UserState.sentInvite);
     }
 
     /**
@@ -302,8 +301,6 @@ export class TradeServer {
         const fromId = socket.data.userId!;
 
         this.inviteManager.cancelInvite(fromId);
-
-        this.setUserState(socket.data.userId!, UserState.inLobby);
     }
 
     /**
@@ -317,9 +314,6 @@ export class TradeServer {
         this.inviteManager.acceptInvite(fromId, toId);
 
         this.tradeManager.startTrade(fromId, toId);
-
-        this.setUserState(fromId, UserState.inTrade);
-        this.setUserState(toId, UserState.inTrade);
     }
 
     /**
@@ -331,8 +325,6 @@ export class TradeServer {
         const toId = socket.data.userId!;
 
         this.inviteManager.rejectInvite(fromId, toId);
-
-        this.setUserState(fromId, UserState.inLobby);
     }
 
     /**
@@ -360,8 +352,6 @@ export class TradeServer {
         const userId = socket.data.userId!;
 
         this.tradeManager.lockIn(userId, inventory1, inventory2);
-
-        this.setUserState(userId, UserState.lockedIn);
     }
 
     /**
@@ -372,8 +362,6 @@ export class TradeServer {
         const userId = socket.data.userId!;
 
         this.tradeManager.unlock(userId);
-
-        this.setUserState(userId, UserState.inTrade);
     }
 
     /**
@@ -384,8 +372,6 @@ export class TradeServer {
         const userId = socket.data.userId!;
 
         this.tradeManager.cancelTrade(userId);
-
-        this.setUserState(userId, UserState.inLobby);
     }
 
     /**
@@ -394,12 +380,7 @@ export class TradeServer {
     private handleCompleteTrade(socket: TradeSocket) {
         const userId = socket.data.userId!;
 
-        const partnerId = this.tradeManager.getTradePartner(userId);
-
         this.tradeManager.completeTrade(userId);
-
-        this.setUserState(userId, UserState.inLobby);
-        this.setUserState(partnerId, UserState.inLobby);
     }
 
     //////////////////////////////////////////////
@@ -408,61 +389,88 @@ export class TradeServer {
 
     // Invites
 
-    private notifyInviteSent(from: UserId, to: UserId) {
+    private inviteSent(from: UserId, to: UserId) {
+        this.setUserState(from, UserState.sentInvite);
+
         this.userIdToSocket.get(to)!.emit("inviteReceived", from);
     }
 
-    private notifyInviteCancelled(from: UserId, to: UserId) {
+    private inviteCancelled(from: UserId, to: UserId) {
+        this.setUserState(from, UserState.inLobby);
+
         this.userIdToSocket.get(to)?.emit("inviteCancelled", from);
     }
 
-    private notifyInviteAccepted(from: UserId, to: UserId) {
+    private inviteAccepted(from: UserId, to: UserId) {
+        this.setUserState(from, UserState.inTrade);
+        this.setUserState(to, UserState.inTrade);
+
         this.userIdToSocket.get(from)!.emit("inviteAccepted", to);
     }
 
-    private notifyInviteRejected(from: UserId, to: UserId) {
+    private inviteRejected(from: UserId, to: UserId) {
+        this.setUserState(from, UserState.inLobby);
+
         this.userIdToSocket.get(from)!.emit("inviteRejected", to);
     }
 
     // Trade
 
-    private notifyTradeStarted(user1: UserId, user2: UserId) {
+    private tradeStarted(user1: UserId, user2: UserId) {
+        this.setUserState(user1, UserState.inTrade);
+        this.setUserState(user2, UserState.inTrade);
+
         this.userIdToSocket.get(user1)!.emit("tradeStarted", user2);
         this.userIdToSocket.get(user2)!.emit("tradeStarted", user1);
 
         console.log("Trade started between", user1, "and", user2);
     }
 
-    private notifyInventoryUpdated(userId: UserId, inventory: Inventory) {
-        this.userIdToSocket.get(userId)!.emit("inventoryUpdated", inventory);
+    private inventoryUpdated(otherUserId: UserId, inventory: Inventory) {
+        this.userIdToSocket
+            .get(otherUserId)!
+            .emit("inventoryUpdated", inventory);
     }
 
-    private notifyLockedIn(
+    private lockedIn(
         userId: UserId,
+        otherUserId: UserId,
         selfInventory: Inventory,
         otherInventory: Inventory,
     ) {
+        this.setUserState(userId, UserState.lockedIn);
+
         this.userIdToSocket
-            .get(userId)!
+            .get(otherUserId)!
             .emit("lockedIn", selfInventory, otherInventory);
     }
 
-    private notifyUnlocked(userId: UserId) {
-        this.userIdToSocket.get(userId)!.emit("unlocked");
+    private unlocked(userId: UserId, otherUserId: UserId) {
+        this.setUserState(userId, UserState.inTrade);
+
+        this.userIdToSocket.get(otherUserId)!.emit("unlocked");
     }
 
-    private notifyTradeCancelled(userId: UserId) {
-        this.userIdToSocket.get(userId)!.emit("tradeCancelled");
+    private notifyTradeCancelled(userId: UserId, otherUserId: UserId) {
+        this.setUserState(userId, UserState.inLobby);
+        this.setUserState(otherUserId, UserState.inLobby);
 
-        console.log("Trade cancelled for", userId);
+        this.userIdToSocket.get(otherUserId)!.emit("tradeCancelled");
+
+        console.log("Trade cancelled between", userId, "and", otherUserId);
     }
 
     private performTrade([user1Info, user2Info]: TradeInfo) {
         const userId1 = user1Info.userId;
         const userId2 = user2Info.userId;
 
+        this.setUserState(userId1, UserState.inLobby);
+        this.setUserState(userId2, UserState.inLobby);
+
         this.userIdToSocket.get(userId1)!.emit("tradeCompleted");
         this.userIdToSocket.get(userId2)!.emit("tradeCompleted");
+
+        console.log("Trade completed between", userId1, "and", userId2);
 
         // TODO
     }

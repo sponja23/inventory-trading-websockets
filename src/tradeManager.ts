@@ -3,6 +3,7 @@ import { InternalError, UserError } from "./errors";
 import { Inventory, UserId } from "./types";
 
 // TODO: Mutual exclusion of trade operations
+// TODO: Handle disconnect
 
 export type UserTradeInfo = {
     userId: UserId;
@@ -42,8 +43,8 @@ export function inventoriesEqual(inventory1: Inventory, inventory2: Inventory) {
     const sortedInventory1 = inventory1.slice().sort();
     const sortedInventory2 = inventory2.slice().sort();
 
-    for (let i = 0; i < inventory1.length; i++) {
-        if (inventory1[i] != inventory2[i]) {
+    for (let i = 0; i < sortedInventory1.length; i++) {
+        if (sortedInventory1[i] != sortedInventory2[i]) {
             return false;
         }
     }
@@ -61,26 +62,31 @@ export class TradeManager {
     trades: Map<UserId, TradeInfo>;
 
     readonly onStart: (user1: UserId, user2: UserId) => void;
-    readonly onUpdate: (userId: UserId, otherUserInventory: Inventory) => void;
+    readonly onUpdate: (
+        otherUserId: UserId,
+        otherUserInventory: Inventory,
+    ) => void;
     readonly onLockIn: (
         userId: UserId,
+        otherUserId: UserId,
         selfInventory: Inventory,
         otherInventory: Inventory,
     ) => void;
-    readonly onUnlock: (userId: UserId) => void;
-    readonly onCancel: (userId: UserId) => void;
+    readonly onUnlock: (userId: UserId, otherUserId: UserId) => void;
+    readonly onCancel: (userId: UserId, otherUserId: UserId) => void;
     readonly onComplete: (tradeInfo: TradeInfo) => void;
 
     constructor(
         onStart: (user1: UserId, user2: UserId) => void,
-        onUpdate: (userId: UserId, otherUserInventory: Inventory) => void,
+        onUpdate: (otherUserId: UserId, otherUserInventory: Inventory) => void,
         onLockIn: (
             userId: UserId,
+            otherUserId: UserId,
             selfInventory: Inventory,
             otherInventory: Inventory,
         ) => void,
-        onUnlock: (userId: UserId) => void,
-        onCancel: (userId: UserId) => void,
+        onUnlock: (userId: UserId, otherUserId: UserId) => void,
+        onCancel: (userId: UserId, otherUserId: UserId) => void,
         onComplete: (tradeInfo: TradeInfo) => void,
     ) {
         this.trades = new Map();
@@ -155,7 +161,7 @@ export class TradeManager {
 
         selfInfo.lockedIn = true;
 
-        this.onLockIn(otherInfo.userId, selfInventory, otherInventory);
+        this.onLockIn(userId, otherInfo.userId, selfInventory, otherInventory);
     }
 
     /**
@@ -167,8 +173,9 @@ export class TradeManager {
         const [selfInfo, { userId: otherId }] = this.getTradeInfo(userId);
 
         selfInfo.lockedIn = false;
+        selfInfo.accepted = false;
 
-        this.onUnlock(otherId);
+        this.onUnlock(userId, otherId);
     }
 
     /**
@@ -182,7 +189,7 @@ export class TradeManager {
         this.trades.delete(userId);
         this.trades.delete(otherId);
 
-        this.onCancel(otherId);
+        this.onCancel(userId, otherId);
     }
 
     /**
@@ -240,12 +247,14 @@ export class TradeManager {
 
         if (selfInfo.lockedIn) {
             selfInfo.lockedIn = false;
-            this.onUnlock(otherInfo.userId);
+            selfInfo.accepted = false;
+            this.onUnlock(userId, otherInfo.userId);
         }
 
         if (otherInfo.lockedIn) {
             otherInfo.lockedIn = false;
-            this.onUnlock(userId);
+            otherInfo.accepted = false;
+            this.onUnlock(otherInfo.userId, userId);
         }
     }
 
