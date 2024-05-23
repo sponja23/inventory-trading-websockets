@@ -34,12 +34,7 @@ export class TradeServerTestHarness {
 
         clientNames.forEach((name, i) => {
             beforeEach((done) => {
-                const client = ioc(
-                    `http://[${this.serverAddress!.address}]:${this.serverAddress!.port}`,
-                    {
-                        multiplex: false,
-                    },
-                );
+                const client = this.newSocket();
 
                 client.on("connect", () => {
                     client.emit("authenticate", name, () => {
@@ -56,6 +51,30 @@ export class TradeServerTestHarness {
                 }
 
                 done();
+            });
+        });
+    }
+
+    public newSocket() {
+        return ioc(
+            `http://[${this.serverAddress!.address}]:${this.serverAddress!.port}`,
+            {
+                multiplex: false,
+            },
+        );
+    }
+
+    public withNewClient(
+        newClientName: string,
+        callback: (newClient: Socket, done: () => void) => void,
+    ) {
+        const newClient = this.newSocket();
+
+        newClient.on("connect", () => {
+            newClient.emit("authenticate", newClientName, () => {
+                callback(newClient, () => {
+                    if (newClient.connected) newClient.disconnect();
+                });
             });
         });
     }

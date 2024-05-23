@@ -178,6 +178,45 @@ describe("Invite Tests", () => {
         });
     });
 
+    // Disconnected users
+    test("After disconnecting, invites sent are cancelled", (done) => {
+        harness.clients[0]!.on("inviteCancelled", (from) => {
+            expect(from).toBe("new-user");
+            done();
+        });
+
+        harness.withNewClient("new-user", (newClient, done) => {
+            newClient.emit("sendInvite", "test-user", () => {
+                newClient.disconnect();
+                done();
+            });
+        });
+    });
+
+    test("After disconnecting, invites received are not rejected, and are re-sent when connecting", (done) => {
+        harness.withNewClient("new-user", (newClient, done2) => {
+            harness.clients[0]!.emit("sendInvite", "new-user", () => {
+                newClient.disconnect();
+                done2();
+
+                // Create new socket to connect
+                // This is because the inviteReceived event must be handled, and this will be sent immediately
+                // after connecting
+
+                const newClient2 = harness.newSocket();
+                newClient2.on("inviteReceived", (from) => {
+                    expect(from).toBe("test-user");
+                    newClient2.disconnect();
+                    done();
+                });
+
+                newClient2.on("connect", () => {
+                    newClient2.emit("authenticate", "new-user", () => {});
+                });
+            });
+        });
+    });
+
     // Error handling
 
     // Can't send invite to self

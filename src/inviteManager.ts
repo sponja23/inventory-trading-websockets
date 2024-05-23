@@ -39,12 +39,6 @@ type InviteInfo = {
     pendingInvites: Set<UserId>;
 
     /**
-     * The set of invites that have not been sent to this user yet
-     * (because they were not connected at the time).
-     */
-    pendingNotifications: Set<UserId>;
-
-    /**
      * Whether the user is connected.
      */
     connected: boolean;
@@ -86,14 +80,10 @@ export class InviteManager {
      */
     userConnected(userId: UserId) {
         const info = this.getInfo(userId);
-        const { pendingNotifications } = info;
 
-        if (pendingNotifications.size > 0) {
-            for (const from of pendingNotifications) {
-                this.onSend(from, userId);
-            }
-
-            pendingNotifications.clear();
+        // Send invites to the user
+        for (const from of info.pendingInvites) {
+            this.onSend(from, userId);
         }
 
         info.connected = true;
@@ -105,18 +95,10 @@ export class InviteManager {
      */
     userDisconnected(userId: UserId) {
         const info = this.getInfo(userId);
-        const { inviteSentTo, pendingInvites } = info;
+        const { inviteSentTo } = info;
 
         if (inviteSentTo !== undefined) {
             this.cancelInvite(userId);
-        }
-
-        if (pendingInvites.size > 0) {
-            for (const from of pendingInvites) {
-                this.rejectInvite(from, userId);
-            }
-
-            pendingInvites.clear();
         }
 
         info.connected = false;
@@ -138,8 +120,6 @@ export class InviteManager {
 
         if (toInfo.connected) {
             this.onSend(from, to);
-        } else {
-            this.addPendingNotification(from, to);
         }
     }
 
@@ -201,7 +181,6 @@ export class InviteManager {
         if (!this.inviteInfo.has(userId)) {
             this.inviteInfo.set(userId, {
                 pendingInvites: new Set(),
-                pendingNotifications: new Set(),
                 connected: false,
             });
         }
@@ -225,12 +204,6 @@ export class InviteManager {
         toInfo.pendingInvites.add(from);
     }
 
-    private addPendingNotification(from: UserId, to: UserId) {
-        const toInfo = this.getInfo(to);
-
-        toInfo.pendingNotifications.add(from);
-    }
-
     private removePendingInvite(from: UserId, to: UserId) {
         const fromInfo = this.getInfo(from);
 
@@ -251,9 +224,5 @@ export class InviteManager {
 
     getPendingInvites(userId: UserId): Set<UserId> {
         return this.getInfo(userId).pendingInvites;
-    }
-
-    getPendingNotifications(userId: UserId): Set<UserId> {
-        return this.getInfo(userId).pendingNotifications;
     }
 }
