@@ -1,204 +1,136 @@
 <!doctype html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Inventory Trading Test Client</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        .trading {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-            padding: 20px;
-            height: 100vh;
-            background-color: #f0f0f0;
-        }
-
-        .user-info {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            align-self: flex-start;
-            background-color: #fff;
-            border-radius: 10px;
-            padding: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-    </style>
-</head>
-
-<body>
-    <main class="trading">
-        <aside class="user-info">
-            <h1>User Information</h1>
-            <p><strong>Username:</strong> <span id="username"></span></p>
-        </aside>
-
-        <button id="invite">Invite User</button>
-
-        <ul id="invites"></ul>
-
-        <div style="display: flex;width: 1000px; margin: auto;">
-            <div style="width: 500px;">
-                <h2>Tu inventario</h2>
-                <ul id="my-inventory"></ul>
-            </div>
-            <div style="width: 500px;">
-                <h2>Su inventario</h2>
-                <ul id="inventory"></ul>
-            </div>
-        </div>
-
-
-    </main>
-</body>
-<script type="module">
-    import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
-
-    // Ask for username on page load
-    // const username = prompt("Enter your username:");
-    const username = "49521102@est.ort.edu.ar";
-    document.getElementById("username").textContent = username;
-
-    // Connect to the server
-    const socket = io("http://10.8.17.53:9000");
-
-    const myInventory = {
-        "094517d7-5ccb-4c00-a3a2-93ee6f0ec604": true,
-        "fdfabb4f-5572-4682-99b7-dc44322c44a8": true,
-        "d9bb6f38-bd3f-4e60-a978-0ea5f90b1d94": true,
-        "e4d6901d-5fb6-4f24-8ab7-608b5eb768a9": true,
-        "7fa43a68-8e4a-4de9-b445-3183c4757477": true,
-        "2f29a0df-d98a-46ca-beca-ee5876b70867": true,
-        "4f5eda06-0227-4867-afbe-d6142c8e7ced": true,
-        "e9d7f976-fdc3-48ec-bff9-d9865ecdba08": true,
-        "e7c34986-c8d2-46ba-883e-c495e7d68d97": true,
-        "bf217220-4aa7-4b39-a792-af622e141859": true,
-    }
-
-    const myInventoryElem = document.getElementById('my-inventory');
-
-    Object.keys(myInventory).forEach((itemId) => {
-        const itemElem = document.createElement('li');
-        itemElem.textContent = itemId + " ✓";
-        itemElem.addEventListener('click', () => {
-
-            myInventory[itemId] = !myInventory[itemId];
-            if (myInventory[itemId]) {
-                itemElem.textContent = itemId + " ✓";
-                itemElem.style.color = 'black';
-                itemElem.style.textDecoration = 'none';
-            } else {
-                itemElem.textContent = itemId + " ✗";
-                itemElem.style.color = 'red';
-                itemElem.style.textDecoration = 'line-through';
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Inventory Trading Test Client</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
             }
-            const items = Object.keys(myInventory).filter((itemId) => myInventory[itemId]);
-            console.log(items);
-            socket.emit('updateInventory', items, (response) => {
-                console.log(response && response.errorMessage);
-            });
-        });
-        myInventoryElem.appendChild(itemElem);
-    });
 
-    // Send the username to the server
-    socket.emit("authenticate", username, (response) => {
-        console.log(response && response.errorMessage);
-    });
+            .trading {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 20px;
+                padding: 20px;
+                height: 100vh;
+                background-color: #f0f0f0;
+            }
 
-    function inviteUser() {
-        // const invitee = prompt(
-        //     "Enter the username of the user you want to invite:",
-        // );
-        const invitee = "ignacio.vigilante@ort.edu.ar";
-        socket.emit("sendInvite", invitee, (response) => {
+            .user-info {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                align-self: flex-start;
+                background-color: #fff;
+                border-radius: 10px;
+                padding: 10px;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            }
+        </style>
+    </head>
+    <body>
+        <main class="trading">
+            <aside class="user-info">
+                <h1>User Information</h1>
+                <p><strong>Username:</strong> <span id="username"></span></p>
+            </aside>
+
+            <button id="invite">Invite User</button>
+
+            <ul id="invites"></ul>
+        </main>
+    </body>
+    <script type="module">
+        import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
+
+        // Ask for username on page load
+        const username = prompt("Enter your username:");
+        document.getElementById("username").textContent = username;
+
+        // Connect to the server
+        const socket = io("http://localhost:9000");
+
+        // Send the username to the server
+        socket.emit("authenticate", username, (response) => {
             console.log(response && response.errorMessage);
         });
 
-        // Disable button
-        document.getElementById("invite").disabled = true;
-    }
-
-    document.getElementById("invite").addEventListener("click", inviteUser);
-
-    socket.on("inviteReceived", (from) => {
-        const inviteElem = document.createElement("li");
-        inviteElem.id = `invite-${from}`;
-        inviteElem.textContent = `${from} has invited you to trade`;
-
-        const acceptBtn = document.createElement("button");
-        acceptBtn.textContent = "Accept";
-        acceptBtn.addEventListener("click", () => {
-            socket.emit("acceptInvite", from, (response) => {
+        function inviteUser() {
+            const invitee = prompt(
+                "Enter the username of the user you want to invite:",
+            );
+            socket.emit("sendInvite", invitee, (response) => {
                 console.log(response && response.errorMessage);
-                document
-                    .getElementById("invites")
-                    .removeChild(document.getElementById(`invite-${from}`));
             });
-        });
 
-        const rejectBtn = document.createElement("button");
-        rejectBtn.textContent = "Reject";
-        rejectBtn.addEventListener("click", () => {
-            socket.emit("rejectInvite", from, (response) => {
-                console.log(response && response.errorMessage);
-                document
-                    .getElementById("invites")
-                    .removeChild(document.getElementById(`invite-${from}`));
+            // Disable button
+            document.getElementById("invite").disabled = true;
+        }
+
+        document.getElementById("invite").addEventListener("click", inviteUser);
+
+        socket.on("inviteReceived", (from) => {
+            const inviteElem = document.createElement("li");
+            inviteElem.id = `invite-${from}`;
+            inviteElem.textContent = `${from} has invited you to trade`;
+
+            const acceptBtn = document.createElement("button");
+            acceptBtn.textContent = "Accept";
+            acceptBtn.addEventListener("click", () => {
+                socket.emit("acceptInvite", from, (response) => {
+                    console.log(response && response.errorMessage);
+                    document
+                        .getElementById("invites")
+                        .removeChild(document.getElementById(`invite-${from}`));
+                });
             });
+
+            const rejectBtn = document.createElement("button");
+            rejectBtn.textContent = "Reject";
+            rejectBtn.addEventListener("click", () => {
+                socket.emit("rejectInvite", from, (response) => {
+                    console.log(response && response.errorMessage);
+                    document
+                        .getElementById("invites")
+                        .removeChild(document.getElementById(`invite-${from}`));
+                });
+            });
+
+            inviteElem.appendChild(acceptBtn);
+            inviteElem.appendChild(rejectBtn);
+
+            document.getElementById("invites").appendChild(inviteElem);
         });
 
-        inviteElem.appendChild(acceptBtn);
-        inviteElem.appendChild(rejectBtn);
+        socket.on("inviteAccepted", (from) => {
+            alert(`${from} has accepted your trade invite`);
 
-        document.getElementById("invites").appendChild(inviteElem);
-    });
-
-    socket.on("inviteAccepted", (from) => {
-        alert(`${from} has accepted your trade invite`);
-
-        // Enable button
-        document.getElementById("invite").disabled = false;
-    });
-
-    socket.on("inviteRejected", (from) => {
-        alert(`${from} has rejected your trade invite`);
-
-        // Enable button
-        document.getElementById("invite").disabled = false;
-    });
-
-    socket.on("inviteCancelled", (from) => {
-        alert(`${from} has cancelled the trade invite`);
-
-        // Enable button
-        document.getElementById("invite").disabled = false;
-    });
-
-    socket.on("tradeStarted", (from) => {
-        alert(`Trade started with ${from}`);
-    });
-
-    socket.on('inventoryUpdated', (inventory) => {
-        const inventoryElem = document.getElementById('inventory');
-        inventoryElem.innerHTML = '';
-
-        inventory.forEach((item) => {
-            const itemElem = document.createElement('li');
-            itemElem.textContent = item;
-            inventoryElem.appendChild(itemElem);
+            // Enable button
+            document.getElementById("invite").disabled = false;
         });
-    });
-</script>
 
+        socket.on("inviteRejected", (from) => {
+            alert(`${from} has rejected your trade invite`);
+
+            // Enable button
+            document.getElementById("invite").disabled = false;
+        });
+
+        socket.on("inviteCancelled", (from) => {
+            alert(`${from} has cancelled the trade invite`);
+
+            // Enable button
+            document.getElementById("invite").disabled = false;
+        });
+
+        socket.on("tradeStarted", (from) => {
+            alert(`Trade started with ${from}`);
+        });
+    </script>
 </html>
