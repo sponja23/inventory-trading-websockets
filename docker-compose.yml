@@ -1,0 +1,9 @@
+services:
+    web:
+        image: inventory-trading
+        ports:
+            - "80:${PORT}"
+        env_file:
+            - stack.env
+        restart: always
+        command: 'sh -c "npm run start"'

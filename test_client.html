@@ -54,7 +54,7 @@
         document.getElementById("username").textContent = username;
 
         // Connect to the server
-        const socket = io("http://localhost:9000");
+        const socket = io("http://localhost");
 
         // Send the username to the server
         socket.emit("authenticate", username, (response) => {

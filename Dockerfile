@@ -29,6 +29,3 @@ COPY --from=build /app/dist ./dist
 
 # Install production dependencies
 RUN npm install --omit=dev && npm cache clean --force
-
-# Run server
-CMD ["node", "."]
