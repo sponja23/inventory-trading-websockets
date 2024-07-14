@@ -1,9 +1,9 @@
 services:
     web:
-        image: inventory-trading
+        image: ghcr.io/sponja23/inventory-trading-websockets:latest
         ports:
             - "80:${PORT}"
         env_file:
-            - stack.env
+            - .env
         restart: always
         command: 'sh -c "npm run start"'
