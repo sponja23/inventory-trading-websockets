@@ -441,14 +441,22 @@ export class TradeServer {
                 expiresIn: "1h",
             });
 
-            void fetch(this.config.performTradeEndpoint, {
+            fetch(this.config.performTradeEndpoint, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify(payload),
-            });
+            })
+                .then((response) => {
+                    if (response)
+                        console.log("Trade performed between:", userIds);
+                    else console.error("Trade failed between:", userIds);
+                })
+                .catch((error) => {
+                    console.error("Trade failed between:", userIds, error);
+                });
         }
     }
 
