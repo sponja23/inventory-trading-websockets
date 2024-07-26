@@ -79,7 +79,7 @@ export class TradeServerTestHarness {
                 .listen()
                 .address() as AddressInfo;
 
-            this.tradeSystem = new TradeServer(new Server(this.httpServer));
+            this.tradeSystem = new TradeServer({}, new Server(this.httpServer));
         });
 
         afterAll(() => {

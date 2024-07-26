@@ -4,12 +4,14 @@ import { Inventory, UserData, UserState, UserId } from "./types";
 import { InviteManager } from "./inviteManager";
 import { InvalidActionError, SocketErrorResponse, UserError } from "./errors";
 import { TradeInfo, TradeManager } from "./tradeManager";
+import jwt from "jsonwebtoken";
+import { verifyToken } from "./authentication";
 
 type UserActions = {
     /**
      * Send the credentials to the server, validate them, and authenticate the user
      */
-    authenticate: (userId: UserId) => void;
+    authenticate: (token: string) => void;
     /**
      * Log out the user
      */
@@ -127,7 +129,39 @@ const validActions = new Map<UserState, (keyof UserActions)[]>([
     [UserState.lockedIn, ["unlock", "completeTrade"]],
 ]);
 
+/**
+ * Configuration for the TradeServer.
+ */
+export type TradeServerConfig = {
+    /**
+     * The public key of the backend server.
+     *
+     * Used to verify the authenticity of auth tokens.
+     *
+     * If not provided, no authentication will be performed, and
+     * `authenticate` will be called with the user ID.
+     */
+    backendPublicKey?: string;
+
+    /**
+     * The private key of the trading server.
+     *
+     * This is used to authenticate the trading server to the backend server.
+     */
+    privateKey?: string;
+
+    /**
+     * The endpoint used to perform trades.
+     */
+    performTradeEndpoint?: string;
+};
+
 export class TradeServer {
+    /**
+     * The configuration for the TradeServer.
+     */
+    config: TradeServerConfig;
+
     /**
      * The Socket.IO server instance.
      */
@@ -149,6 +183,7 @@ export class TradeServer {
     userIdToSocket = new Map<UserId, TradeSocket>();
 
     constructor(
+        config: TradeServerConfig,
         private _io: Server<
             UserActions,
             ServerActions,
@@ -156,6 +191,7 @@ export class TradeServer {
             UserData
         >,
     ) {
+        this.config = config;
         this.io = _io;
         this.setupSocketEvents();
         this.inviteManager = new InviteManager(
@@ -253,7 +289,16 @@ export class TradeServer {
      * @param socket The socket that sent the action
      * @param userId The user ID to authenticate to
      */
-    private handleAuthenticate(socket: TradeSocket, userId: UserId) {
+    private handleAuthenticate(socket: TradeSocket, token: string) {
+        let userId: UserId;
+
+        if (this.config.backendPublicKey !== undefined) {
+            // Verify the token
+            userId = verifyToken(token, this.config.backendPublicKey);
+        } else {
+            userId = token;
+        }
+
         this.userIdToSocket.set(userId, socket);
 
         socket.data.userId = userId;
@@ -274,6 +319,7 @@ export class TradeServer {
         const userId = socket.data.userId!;
 
         this.inviteManager.userDisconnected(userId);
+        this.tradeManager.userDisconnected(userId);
 
         this.setUserState(userId, UserState.noUserId);
 
@@ -381,6 +427,29 @@ export class TradeServer {
         const userId = socket.data.userId!;
 
         this.tradeManager.completeTrade(userId);
+
+        if (this.config.performTradeEndpoint && this.config.privateKey) {
+            const tradeInfo = this.tradeManager.getTradeInfo(userId);
+
+            // Perform the trade
+            const payload = { tradeInfo };
+
+            const userIds = tradeInfo.map((info) => info.userId);
+
+            const token = jwt.sign({ userIds }, this.config.privateKey, {
+                algorithm: "RS256",
+                expiresIn: "1h",
+            });
+
+            void fetch(this.config.performTradeEndpoint, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(payload),
+            });
+        }
     }
 
     //////////////////////////////////////////////

@@ -118,6 +118,17 @@ export class TradeManager {
     }
 
     /**
+     * Handles a user disconnecting from the server.
+     *
+     * Closes the trade if the user is in one.
+     * 
+     * @param userId The ID of the user that disconnected.
+     */
+    userDisconnected(userId: UserId) {
+        // TODO
+    }
+
+    /**
      * Updates the inventory of a user in a trade.
      *
      * @param userId The ID of the user to update the inventory for.
@@ -223,7 +234,7 @@ export class TradeManager {
      *
      * @param userId The ID of the user to get trade info for.
      */
-    private getTradeInfo(userId: UserId) {
+    getTradeInfo(userId: UserId) {
         if (!this.trades.has(userId)) {
             throw new InternalError(`User ${userId} is not in a trade`);
         }
@@ -269,8 +280,11 @@ export class TradeManager {
         return otherId;
     }
 
-    // Accessors for testing
-
+    /**
+     * Get the inventory of a user in a trade.
+     * @param userId The ID of the user to get the inventory for.
+     * @returns The inventory of the user.
+     */
     getTradeInventory(userId: UserId) {
         return this.getTradeInfo(userId)[0].inventory;
     }
