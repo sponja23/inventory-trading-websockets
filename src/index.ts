@@ -16,25 +16,19 @@ const isDevelopment = env === "development";
 
 const config: TradeServerConfig = {};
 
-if (process.env.BACKEND_PUBLIC_KEY) {
-    if (!isDevelopment)
-        throw new Error("Missing BACKEND_PUBLIC_KEY environment variable");
-
+if (process.env.BACKEND_PUBLIC_KEY)
     config.backendPublicKey = process.env.BACKEND_PUBLIC_KEY as string;
-}
+else if (!isDevelopment)
+    throw new Error("Missing BACKEND_PUBLIC_KEY environment variable");
 
-if (process.env.PRIVATE_KEY) {
-    if (!isDevelopment)
-        throw new Error("Missing PRIVATE_KEY environment variable");
-
+if (process.env.PRIVATE_KEY)
     config.privateKey = process.env.PRIVATE_KEY as string;
-}
+else if (!isDevelopment)
+    throw new Error("Missing PRIVATE_KEY environment variable");
 
-if (process.env.PERFORM_TRADE_ENDPOINT) {
-    if (!isDevelopment)
-        throw new Error("Missing PERFORM_TRADE_ENDPOINT environment variable");
-
+if (process.env.PERFORM_TRADE_ENDPOINT)
     config.performTradeEndpoint = process.env.PERFORM_TRADE_ENDPOINT as string;
-}
+else if (!isDevelopment)
+    throw new Error("Missing PERFORM_TRADE_ENDPOINT environment variable");
 
 new TradeServer(config, io);

@@ -5,6 +5,7 @@ import ioc, { Socket } from "socket.io-client";
 import { AddressInfo } from "net";
 import { TradeServer } from "../src/tradeServer";
 import { afterAll, afterEach, beforeAll, beforeEach } from "@jest/globals";
+import { BackendServer, setupBackendServer } from "./backend";
 
 /**
  * A wrapper around a socket.io client that allows for async operations.
@@ -64,26 +65,49 @@ export class AsyncSocket {
     }
 }
 
+/**
+ * A test harness for the trade server.
+ */
 export class TradeServerTestHarness {
     private httpServer: http.Server | null = null;
     private serverAddress: AddressInfo | null = null;
+
+    private backendServer: BackendServer | null = null;
+
     public tradeSystem: TradeServer | null = null;
     public clients: Record<string, AsyncSocket>;
 
     constructor(clientNames: string[]) {
         this.clients = {};
 
-        beforeAll(() => {
+        beforeAll((done) => {
             this.httpServer = http.createServer();
             this.serverAddress = this.httpServer
                 .listen()
                 .address() as AddressInfo;
 
-            this.tradeSystem = new TradeServer({}, new Server(this.httpServer));
+            const { server, backendPublicKey, tradingPrivateKey } =
+                setupBackendServer();
+
+            this.backendServer = server;
+
+            const { address, port } = this.backendServer.address;
+
+            this.tradeSystem = new TradeServer(
+                {
+                    backendPublicKey,
+                    privateKey: tradingPrivateKey,
+                    performTradeEndpoint: `http://[${address}]:${port}`,
+                },
+                new Server(this.httpServer!),
+            );
+
+            done();
         });
 
         afterAll(() => {
             this.tradeSystem!.close();
+            this.backendServer!.close();
             this.httpServer!.close();
         });
 
@@ -92,7 +116,7 @@ export class TradeServerTestHarness {
                 const client = this.newSocket();
 
                 client.on("connect", async () => {
-                    await client.emit("authenticate", name);
+                    await this.authenticateClient(name);
                     done();
                 });
 
@@ -125,7 +149,7 @@ export class TradeServerTestHarness {
         const newClient = this.newSocket();
 
         newClient.on("connect", async () => {
-            await newClient.emit("authenticate", newClientName);
+            await this.authenticateSocketWithName(newClient, newClientName);
 
             await callback(newClient);
 
@@ -142,5 +166,19 @@ export class TradeServerTestHarness {
 
             this.clients[client1].emit("sendInvite", client2);
         });
+    }
+
+    public async authenticateSocketWithName(socket: AsyncSocket, name: string) {
+        await socket.emit(
+            "authenticate",
+            this.backendServer!.signAuthToken(name),
+        );
+    }
+
+    public async authenticateClient(clientName: string) {
+        return this.authenticateSocketWithName(
+            this.clients[clientName],
+            clientName,
+        );
     }
 }

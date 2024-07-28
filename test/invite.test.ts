@@ -55,9 +55,11 @@ describe("Invite Tests", () => {
             done();
         });
 
-        harness.clients["test-user"].emit("sendInvite", "other-user").then(() =>
-            harness.clients["test-user"].emit("cancelInvite", "other-user"),
-        );
+        harness.clients["test-user"]
+            .emit("sendInvite", "other-user")
+            .then(() =>
+                harness.clients["test-user"].emit("cancelInvite", "other-user"),
+            );
     });
 
     // Rejecting invite tests
@@ -149,7 +151,10 @@ describe("Invite Tests", () => {
         await harness.clients["test-user"].emit("sendInvite", "other-user");
 
         try {
-            await harness.clients["test-user"].emit("sendInvite", "other-user-2");
+            await harness.clients["test-user"].emit(
+                "sendInvite",
+                "other-user-2",
+            );
             fail("Expected error to be thrown");
         } catch (err: unknown) {
             expect((err as SocketErrorResponse).errorName).toEqual(
@@ -187,7 +192,10 @@ describe("Invite Tests", () => {
                 done();
             });
             newClient2.on("connect", async () => {
-                await newClient2.emit("authenticate", "new-user");
+                await harness.authenticateSocketWithName(
+                    newClient2,
+                    "new-user",
+                );
             });
         });
     });
@@ -209,7 +217,10 @@ describe("Invite Tests", () => {
     // Can't cancel invite that doesn't exist
     test("Can't cancel invite that doesn't exist", async () => {
         try {
-            await harness.clients["test-user"].emit("cancelInvite", "other-user");
+            await harness.clients["test-user"].emit(
+                "cancelInvite",
+                "other-user",
+            );
             fail("Expected error to be thrown");
         } catch (err: unknown) {
             expect((err as SocketErrorResponse).errorName).toEqual(
@@ -221,7 +232,10 @@ describe("Invite Tests", () => {
     // Can't reject invite that doesn't exist
     test("Can't reject invite that doesn't exist", async () => {
         try {
-            await harness.clients["test-user"].emit("rejectInvite", "other-user");
+            await harness.clients["test-user"].emit(
+                "rejectInvite",
+                "other-user",
+            );
             fail("Expected error to be thrown");
         } catch (err: unknown) {
             expect((err as SocketErrorResponse).errorName).toEqual(
@@ -233,7 +247,10 @@ describe("Invite Tests", () => {
     // Can't accept invite that doesn't exist
     test("Can't accept invite that doesn't exist", async () => {
         try {
-            await harness.clients["test-user"].emit("acceptInvite", "other-user");
+            await harness.clients["test-user"].emit(
+                "acceptInvite",
+                "other-user",
+            );
             fail("Expected error to be thrown");
         } catch (err: unknown) {
             expect((err as SocketErrorResponse).errorName).toEqual(

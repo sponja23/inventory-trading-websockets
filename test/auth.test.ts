@@ -15,10 +15,7 @@ describe("Authentication Tests", () => {
 
     test("User can't authenticate twice", async () => {
         try {
-            await harness.clients["test-user"].emit(
-                "authenticate",
-                "test-user",
-            );
+            await harness.authenticateClient("test-user");
             fail("Expected error to be thrown");
         } catch (err) {
             expect((err as SocketErrorResponse).errorName).toBe(
@@ -36,7 +33,7 @@ describe("Authentication Tests", () => {
 
     test("Logged out user can authenticate again", async () => {
         await harness.clients["test-user"].emit("logOut");
-        await harness.clients["test-user"].emit("authenticate", "test-user");
+        await harness.authenticateClient("test-user");
 
         expect(harness.tradeSystem!.getUserState("test-user")).toBe(
             UserState.inLobby,

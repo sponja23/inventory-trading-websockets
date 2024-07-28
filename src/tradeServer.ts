@@ -426,12 +426,11 @@ export class TradeServer {
     private handleCompleteTrade(socket: TradeSocket) {
         const userId = socket.data.userId!;
 
+        const tradeInfo = this.tradeManager.getTradeInfo(userId);
+
         this.tradeManager.completeTrade(userId);
 
         if (this.config.performTradeEndpoint && this.config.privateKey) {
-            const tradeInfo = this.tradeManager.getTradeInfo(userId);
-
-            // Perform the trade
             const payload = { tradeInfo };
 
             const userIds = tradeInfo.map((info) => info.userId);
