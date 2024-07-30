@@ -99,6 +99,10 @@ export class TradeManager {
         this.onComplete = onComplete;
     }
 
+    private logError(message: string) {
+        console.error(`[TradeManager] ${message}`);
+    }
+
     /**
      * Starts a trade between two users.
      *
@@ -121,7 +125,7 @@ export class TradeManager {
      * Handles a user disconnecting from the server.
      *
      * Closes the trade if the user is in one.
-     * 
+     *
      * @param userId The ID of the user that disconnected.
      */
     userDisconnected(userId: UserId) {
@@ -157,6 +161,10 @@ export class TradeManager {
         const [selfInfo, otherInfo] = this.getTradeInfo(userId);
 
         if (!inventoriesEqual(selfInfo.inventory, selfInventory)) {
+            this.logError(
+                `User ${userId} attempted to lock in with inventory that does not match: ${selfInfo.inventory} != ${selfInventory}`,
+            );
+
             throw new InventoryMistmatchError(
                 selfInfo.inventory,
                 selfInventory,
@@ -164,6 +172,10 @@ export class TradeManager {
         }
 
         if (!inventoriesEqual(otherInfo.inventory, otherInventory)) {
+            this.logError(
+                `User ${userId} attempted to lock in with other user's inventory that does not match: ${otherInfo.inventory} != ${otherInventory}`,
+            );
+
             throw new InventoryMistmatchError(
                 otherInfo.inventory,
                 otherInventory,
@@ -212,6 +224,10 @@ export class TradeManager {
         const [selfInfo, otherInfo] = this.getTradeInfo(userId);
 
         if (!selfInfo.lockedIn || !otherInfo.lockedIn) {
+            this.logError(
+                `User ${userId} attempted to complete trade without both users being locked in`,
+            );
+
             throw new CantCompleteEitherUnlockedError();
         }
 

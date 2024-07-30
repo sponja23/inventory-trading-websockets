@@ -1,5 +1,6 @@
 import { UserError } from "./errors";
 import jwt from "jsonwebtoken";
+import logger from "./logger";
 
 export class AuthError extends UserError {
     constructor(token: string) {
@@ -18,11 +19,15 @@ export function verifyToken(token: string, publicKey: string) {
                 typeof decoded.id === "string"
             )
         ) {
+            logger.error(`Invalid token payload: ${JSON.stringify(decoded)}`);
+
             throw new AuthError(token);
         }
 
         return decoded.id as string;
     } catch (e) {
+        logger.error(`Failed to verify token: ${e}`);
+
         throw new AuthError(token);
     }
 }

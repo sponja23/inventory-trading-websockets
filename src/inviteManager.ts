@@ -1,4 +1,5 @@
 import { UserError } from "./errors";
+import logger from "./logger";
 import { UserId } from "./types";
 
 /**
@@ -74,6 +75,10 @@ export class InviteManager {
         this.onCancel = onCancel;
     }
 
+    private logError(message: string) {
+        logger.error(`[InviteManager] ${message}`);
+    }
+
     /**
      * Called when a user connects.
      * @param userId The ID of the user that connected.
@@ -111,6 +116,8 @@ export class InviteManager {
      */
     sendInvite(from: UserId, to: UserId) {
         if (from === to) {
+            this.logError(`User ${from} attempted to send invite to self`);
+
             throw new SelfInviteError();
         }
 
@@ -138,6 +145,10 @@ export class InviteManager {
         }
 
         if (!this.inviteExists(from, to)) {
+            this.logError(
+                `User ${from} attempted to cancel non-existent invite to ${to}`,
+            );
+
             throw new InvalidInviteError(from, to);
         }
 
@@ -153,6 +164,8 @@ export class InviteManager {
      */
     acceptInvite(from: UserId, to: UserId) {
         if (!this.inviteExists(from, to)) {
+            this.logError(`User ${to} attempted to accept non-existent invite`);
+
             throw new InvalidInviteError(from, to);
         }
 
@@ -168,6 +181,8 @@ export class InviteManager {
      */
     rejectInvite(from: UserId, to: UserId) {
         if (!this.inviteExists(from, to)) {
+            this.logError(`User ${to} attempted to reject non-existent invite`);
+
             throw new InvalidInviteError(from, to);
         }
 

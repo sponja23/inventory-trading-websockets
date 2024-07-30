@@ -6,6 +6,7 @@ import { InvalidActionError, SocketErrorResponse, UserError } from "./errors";
 import { TradeInfo, TradeManager } from "./tradeManager";
 import jwt from "jsonwebtoken";
 import { verifyToken } from "./authentication";
+import logger from "./logger";
 
 type UserActions = {
     /**
@@ -306,7 +307,7 @@ export class TradeServer {
 
         this.inviteManager.userConnected(userId);
 
-        console.log(`User "${userId}" has connected`);
+        logger.info(`User "${userId}" has logged in`);
 
         this.setUserState(userId, UserState.inLobby);
     }
@@ -325,7 +326,7 @@ export class TradeServer {
 
         this.userIdToSocket.delete(userId);
 
-        console.log(`User "${userId}" has logged out`);
+        logger.info(`User "${userId}" has logged out`);
     }
 
     /**
@@ -335,6 +336,8 @@ export class TradeServer {
      */
     private handleSendInvite(socket: TradeSocket, toId: UserId) {
         const fromId = socket.data.userId!;
+
+        logger.info(`User "${fromId}" is sending an invite to "${toId}"`);
 
         this.inviteManager.sendInvite(fromId, toId);
     }
@@ -346,6 +349,8 @@ export class TradeServer {
     private handleCancelInvite(socket: TradeSocket) {
         const fromId = socket.data.userId!;
 
+        logger.info(`User "${fromId}" is cancelling their invite`);
+
         this.inviteManager.cancelInvite(fromId);
     }
 
@@ -356,6 +361,8 @@ export class TradeServer {
      */
     private handleAcceptInvite(socket: TradeSocket, fromId: UserId) {
         const toId = socket.data.userId!;
+
+        logger.info(`User "${toId}" is accepting an invite from "${fromId}"`);
 
         this.inviteManager.acceptInvite(fromId, toId);
 
@@ -370,6 +377,8 @@ export class TradeServer {
     private handleRejectInvite(socket: TradeSocket, fromId: UserId) {
         const toId = socket.data.userId!;
 
+        logger.info(`User "${toId}" is rejecting an invite from "${fromId}"`);
+
         this.inviteManager.rejectInvite(fromId, toId);
     }
 
@@ -380,6 +389,8 @@ export class TradeServer {
      */
     private handleUpdateInventory(socket: TradeSocket, inventory: Inventory) {
         const userId = socket.data.userId!;
+
+        logger.info(`User "${userId}" is updating their inventory`);
 
         this.tradeManager.updateInventory(userId, inventory);
     }
@@ -397,6 +408,8 @@ export class TradeServer {
     ) {
         const userId = socket.data.userId!;
 
+        logger.info(`User "${userId}" is locking in their inventory`);
+
         this.tradeManager.lockIn(userId, inventory1, inventory2);
     }
 
@@ -406,6 +419,8 @@ export class TradeServer {
      */
     private handleUnlock(socket: TradeSocket) {
         const userId = socket.data.userId!;
+
+        logger.info(`User "${userId}" is unlocking their inventory`);
 
         this.tradeManager.unlock(userId);
     }
@@ -417,6 +432,8 @@ export class TradeServer {
     private handleCancelTrade(socket: TradeSocket) {
         const userId = socket.data.userId!;
 
+        logger.info(`User "${userId}" is cancelling their trade`);
+
         this.tradeManager.cancelTrade(userId);
     }
 
@@ -426,37 +443,9 @@ export class TradeServer {
     private handleCompleteTrade(socket: TradeSocket) {
         const userId = socket.data.userId!;
 
-        const tradeInfo = this.tradeManager.getTradeInfo(userId);
+        logger.info(`User "${userId}" is accepting their trade`);
 
         this.tradeManager.completeTrade(userId);
-
-        if (this.config.performTradeEndpoint && this.config.privateKey) {
-            const payload = { tradeInfo };
-
-            const userIds = tradeInfo.map((info) => info.userId);
-
-            const token = jwt.sign({ userIds }, this.config.privateKey, {
-                algorithm: "RS256",
-                expiresIn: "1h",
-            });
-
-            fetch(this.config.performTradeEndpoint, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(payload),
-            })
-                .then((response) => {
-                    if (response)
-                        console.log("Trade performed between:", userIds);
-                    else console.error("Trade failed between:", userIds);
-                })
-                .catch((error) => {
-                    console.error("Trade failed between:", userIds, error);
-                });
-        }
     }
 
     //////////////////////////////////////////////
@@ -469,12 +458,16 @@ export class TradeServer {
         this.setUserState(from, UserState.sentInvite);
 
         this.userIdToSocket.get(to)!.emit("inviteReceived", from);
+
+        logger.info(`Invite sent from "${from}" to "${to}"`);
     }
 
     private inviteCancelled(from: UserId, to: UserId) {
         this.setUserState(from, UserState.inLobby);
 
         this.userIdToSocket.get(to)?.emit("inviteCancelled", from);
+
+        logger.info(`Invite from "${from}" to "${to}" cancelled`);
     }
 
     private inviteAccepted(from: UserId, to: UserId) {
@@ -482,12 +475,16 @@ export class TradeServer {
         this.setUserState(to, UserState.inTrade);
 
         this.userIdToSocket.get(from)!.emit("inviteAccepted", to);
+
+        logger.info(`Invite from "${from}" to "${to}" accepted`);
     }
 
     private inviteRejected(from: UserId, to: UserId) {
         this.setUserState(from, UserState.inLobby);
 
         this.userIdToSocket.get(from)!.emit("inviteRejected", to);
+
+        logger.info(`Invite from "${from}" to "${to}" rejected`);
     }
 
     // Trade
@@ -499,13 +496,17 @@ export class TradeServer {
         this.userIdToSocket.get(user1)!.emit("tradeStarted", user2);
         this.userIdToSocket.get(user2)!.emit("tradeStarted", user1);
 
-        console.log("Trade started between", user1, "and", user2);
+        logger.info(`Trade between "${user1}" and "${user2}" started`);
     }
 
     private inventoryUpdated(otherUserId: UserId, inventory: Inventory) {
         this.userIdToSocket
             .get(otherUserId)!
             .emit("inventoryUpdated", inventory);
+
+        logger.info(
+            `Inventory of user "${otherUserId}" updated to: ${inventory}`,
+        );
     }
 
     private lockedIn(
@@ -519,12 +520,16 @@ export class TradeServer {
         this.userIdToSocket
             .get(otherUserId)!
             .emit("lockedIn", selfInventory, otherInventory);
+
+        logger.info(`User "${userId}" has locked in their inventory`);
     }
 
     private unlocked(userId: UserId, otherUserId: UserId) {
         this.setUserState(userId, UserState.inTrade);
 
         this.userIdToSocket.get(otherUserId)!.emit("unlocked");
+
+        logger.info(`User "${userId}" has unlocked their inventory`);
     }
 
     private notifyTradeCancelled(userId: UserId, otherUserId: UserId) {
@@ -533,7 +538,7 @@ export class TradeServer {
 
         this.userIdToSocket.get(otherUserId)!.emit("tradeCancelled");
 
-        console.log("Trade cancelled between", userId, "and", otherUserId);
+        logger.info(`Trade between "${userId}" and "${otherUserId}" cancelled`);
     }
 
     private performTrade([user1Info, user2Info]: TradeInfo) {
@@ -546,9 +551,44 @@ export class TradeServer {
         this.userIdToSocket.get(userId1)!.emit("tradeCompleted");
         this.userIdToSocket.get(userId2)!.emit("tradeCompleted");
 
-        console.log("Trade completed between", userId1, "and", userId2);
+        logger.info(`Trade between "${userId1}" and "${userId2}" completed`);
 
-        // TODO
+        if (this.config.performTradeEndpoint && this.config.privateKey) {
+            const payload = { tradeInfo: [user1Info, user2Info] };
+
+            const token = jwt.sign(
+                { userIds: [userId1, userId2] },
+                this.config.privateKey,
+                {
+                    algorithm: "RS256",
+                    expiresIn: "1h",
+                },
+            );
+
+            fetch(this.config.performTradeEndpoint, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(payload),
+            })
+                .then((response) => {
+                    if (response.ok)
+                        logger.info(
+                            `Trade performed between "${userId1}" and "${userId2}"`,
+                        );
+                    else
+                        logger.error(
+                            `Trade performance failed between "${userId1}" and "${userId2}": ${response.status} ${response.statusText}`,
+                        );
+                })
+                .catch((error) => {
+                    logger.error(
+                        `Trade performance failed between "${userId1}" and "${userId2}": ${error}`,
+                    );
+                });
+        }
     }
 
     /////////////////////////////////////////////

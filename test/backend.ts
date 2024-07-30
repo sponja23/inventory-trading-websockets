@@ -60,6 +60,7 @@ export class BackendServer {
         });
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     public verifyToken(token: string) {
         // TODO
         return true;
