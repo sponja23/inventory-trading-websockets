@@ -2,7 +2,7 @@ services:
     web:
         image: ghcr.io/sponja23/inventory-trading-websockets:latest
         ports:
-            - "80:${PORT}"
+            - "${PORT}:${PORT}"
         env_file:
             - .env
         restart: always
