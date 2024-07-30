@@ -217,4 +217,15 @@ describe("Trade Tests", () => {
             );
         }
     });
+
+    test("Disconnecting user cancels trade", (done) => {
+        harness.clients["other-user"].on("tradeCancelled", async () => {
+            expect(harness.tradeSystem!.getUserState("other-user")).toBe(
+                UserState.inLobby,
+            );
+            done();
+        });
+
+        harness.clients["test-user"].disconnect();
+    });
 });

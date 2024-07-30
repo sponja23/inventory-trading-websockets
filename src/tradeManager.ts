@@ -3,7 +3,6 @@ import { InternalError, UserError } from "./errors";
 import { Inventory, UserId } from "./types";
 
 // TODO: Mutual exclusion of trade operations
-// TODO: Handle disconnect
 
 export type UserTradeInfo = {
     userId: UserId;
@@ -129,7 +128,9 @@ export class TradeManager {
      * @param userId The ID of the user that disconnected.
      */
     userDisconnected(userId: UserId) {
-        // TODO
+        if (this.trades.has(userId)) {
+            this.cancelTrade(userId);
+        }
     }
 
     /**
