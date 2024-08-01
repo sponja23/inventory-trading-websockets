@@ -200,6 +200,17 @@ describe("Invite Tests", () => {
         });
     });
 
+    test("Can cancel invite sent to disconnected user", async () => {
+        harness.clients["other-user"].disconnect();
+
+        await harness.clients["test-user"].emit("sendInvite", "other-user");
+        await harness.clients["test-user"].emit("cancelInvite", "other-user");
+
+        expect(harness.tradeSystem!.getUserState("test-user")).toBe(
+            UserState.inLobby,
+        );
+    });
+
     // Error handling
 
     // Can't send invite to self
