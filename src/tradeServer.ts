@@ -197,6 +197,7 @@ export class TradeServer {
         this.setupSocketEvents();
         this.inviteManager = new InviteManager(
             this.inviteSent.bind(this),
+            this.inviteReceived.bind(this),
             this.inviteAccepted.bind(this),
             this.inviteRejected.bind(this),
             this.inviteCancelled.bind(this),
@@ -454,9 +455,11 @@ export class TradeServer {
 
     // Invites
 
-    private inviteSent(from: UserId, to: UserId) {
+    private inviteSent(from: UserId) {
         this.setUserState(from, UserState.sentInvite);
+    }
 
+    private inviteReceived(from: UserId, to: UserId) {
         this.userIdToSocket.get(to)!.emit("inviteReceived", from);
 
         logger.info(`Invite sent from "${from}" to "${to}"`);

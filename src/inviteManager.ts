@@ -56,13 +56,15 @@ export class InviteManager {
      */
     private readonly inviteInfo: Map<UserId, InviteInfo>;
 
-    readonly onSend: (from: UserId, to: UserId) => void;
+    readonly onSend: (from: UserId) => void;
+    readonly onReceive: (from: UserId, to: UserId) => void;
     readonly onAccept: (from: UserId, to: UserId) => void;
     readonly onReject: (from: UserId, to: UserId) => void;
     readonly onCancel: (from: UserId, to: UserId) => void;
 
     constructor(
-        onSend: (from: UserId, to: UserId) => void,
+        onSend: (from: UserId) => void,
+        onReceive: (from: UserId, to: UserId) => void,
         onAccept: (from: UserId, to: UserId) => void,
         onReject: (from: UserId, to: UserId) => void,
         onCancel: (from: UserId, to: UserId) => void,
@@ -70,6 +72,7 @@ export class InviteManager {
         this.inviteInfo = new Map();
 
         this.onSend = onSend;
+        this.onReceive = onReceive;
         this.onAccept = onAccept;
         this.onReject = onReject;
         this.onCancel = onCancel;
@@ -88,7 +91,7 @@ export class InviteManager {
 
         // Send invites to the user
         for (const from of info.pendingInvites) {
-            this.onSend(from, userId);
+            this.onReceive(from, userId);
         }
 
         info.connected = true;
@@ -124,9 +127,10 @@ export class InviteManager {
         this.addPendingInvite(from, to);
 
         const toInfo = this.getInfo(to);
+        this.onSend(from);
 
         if (toInfo.connected) {
-            this.onSend(from, to);
+            this.onReceive(from, to);
         }
     }
 
