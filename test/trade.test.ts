@@ -107,6 +107,18 @@ describe("Trade Tests", () => {
             });
     });
 
+    test("Other user is not unlocked when user unlocks", async () => {
+        await harness.clients["test-user"].emit("updateInventory", ["A"]);
+        await harness.clients["other-user"].emit("updateInventory", ["B"]);
+        await harness.clients["test-user"].emit("lockIn", ["A"], ["B"]);
+        await harness.clients["other-user"].emit("lockIn", ["B"], ["A"]);
+        await harness.clients["test-user"].emit("unlock");
+
+        expect(harness.tradeSystem!.getUserState("other-user")).toBe(
+            UserState.lockedIn,
+        );
+    });
+
     test("User is unlocked when other user changes inventory", async () => {
         await harness.clients["test-user"].emit("updateInventory", ["A"]);
         await harness.clients["other-user"].emit("updateInventory", ["B"]);
